@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dakaii/azure-hybrid-platform/control-plane/internal/auth"
-	"github.com/dakaii/azure-hybrid-platform/control-plane/internal/config"
+	"github.com/dakaii/metal-mirage/control-plane/internal/auth"
+	"github.com/dakaii/metal-mirage/control-plane/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/curve25519"
 )

@@ -1,4 +1,4 @@
-module github.com/dakaii/azure-hybrid-platform/infra-standby-aks
+module github.com/dakaii/metal-mirage/infra-standby-aks
 
 go 1.26.5
 

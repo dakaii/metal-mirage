@@ -1,3 +1,3 @@
-name: azure-hybrid-flux
+name: metal-mirage-flux
 runtime: go
 description: Bootstrap Flux GitOps on a target cluster using kubeconfig

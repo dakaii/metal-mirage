@@ -128,7 +128,7 @@ Multi-city = another stack/region with a `city` tag; clients switch profiles man
 - **Primary** external endpoint → primary ingress IP (priority 1).
 - **Standby** external endpoint → AKS FQDN when configured (priority 2).
 - Monitor: HTTPS `:443` path `/healthz`, 30s interval, 3 tolerated failures.
-- DNS relative name `azure-hybrid-app` → `*.trafficmanager.net` (custom domain optional via config).
+- DNS relative name `metal-mirage-app` → `*.trafficmanager.net` (custom domain optional via config).
 
 Optional witness Function App (Python 3.11, Consumption Y1) provides an additional readiness signal; wire it with `scripts/deploy-witness.sh` after `./scripts/up.sh shared`.
 

@@ -1,4 +1,4 @@
-module github.com/dakaii/azure-hybrid-platform/infra-vpn
+module github.com/dakaii/metal-mirage/infra-vpn
 
 go 1.26.5
 

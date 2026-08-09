@@ -19,7 +19,7 @@ func main() {
 		cfg := config.New(ctx, "primary")
 		location := cfgGet(cfg, "location", "eastus")
 		talosImageID := cfg.Require("talosImageId")
-		clusterName := cfgGet(cfg, "clusterName", "azure-hybrid-primary")
+		clusterName := cfgGet(cfg, "clusterName", "metal-mirage-primary")
 		cpCount := cfgGetInt(cfg, "controlPlaneCount", 1)
 		workerCount := cfgGetInt(cfg, "workerCount", 1)
 		vmSize := cfgGet(cfg, "vmSize", "Standard_B2s")

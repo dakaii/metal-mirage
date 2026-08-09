@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dakaii/azure-hybrid-platform/control-plane/internal/auth"
-	"github.com/dakaii/azure-hybrid-platform/control-plane/internal/config"
-	"github.com/dakaii/azure-hybrid-platform/control-plane/internal/db"
-	"github.com/dakaii/azure-hybrid-platform/control-plane/internal/peers"
+	"github.com/dakaii/metal-mirage/control-plane/internal/auth"
+	"github.com/dakaii/metal-mirage/control-plane/internal/config"
+	"github.com/dakaii/metal-mirage/control-plane/internal/db"
+	"github.com/dakaii/metal-mirage/control-plane/internal/peers"
 	"github.com/joho/godotenv"
 )
 

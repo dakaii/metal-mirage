@@ -1,4 +1,4 @@
-module github.com/dakaii/azure-hybrid-platform/infra-primary
+module github.com/dakaii/metal-mirage/infra-primary
 
 go 1.26.5
 

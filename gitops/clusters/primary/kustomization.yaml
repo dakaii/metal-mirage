@@ -9,7 +9,7 @@ spec:
   prune: true
   sourceRef:
     kind: GitRepository
-    name: azure-hybrid
+    name: metal-mirage
   healthChecks:
     - apiVersion: apps/v1
       kind: Deployment
@@ -27,6 +27,6 @@ spec:
   prune: true
   sourceRef:
     kind: GitRepository
-    name: azure-hybrid
+    name: metal-mirage
   dependsOn:
     - name: infrastructure

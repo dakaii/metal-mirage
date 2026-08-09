@@ -1,4 +1,4 @@
-module github.com/dakaii/azure-hybrid-platform/infra-shared
+module github.com/dakaii/metal-mirage/infra-shared
 
 go 1.26.5
 

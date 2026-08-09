@@ -1,4 +1,4 @@
-module github.com/dakaii/azure-hybrid-platform/control-plane
+module github.com/dakaii/metal-mirage/control-plane
 
 go 1.25.0
 

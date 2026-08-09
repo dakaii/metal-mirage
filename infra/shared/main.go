@@ -36,7 +36,7 @@ func main() {
 			TrafficRoutingMethod:        network.TrafficRoutingMethodPriority,
 			TrafficViewEnrollmentStatus: network.TrafficViewEnrollmentStatusDisabled,
 			DnsConfig: &network.DnsConfigArgs{
-				RelativeName: pulumi.String("azure-hybrid-app"),
+				RelativeName: pulumi.String("metal-mirage-app"),
 				Ttl:          pulumi.Float64(30),
 			},
 			MonitorConfig: &network.MonitorConfigArgs{

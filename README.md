@@ -74,6 +74,7 @@ pulumi login   # or pulumi login --local
 | [docs/VPN.md](docs/VPN.md) | City exits, monitoring, honesty notes |
 | [docs/COST.md](docs/COST.md) | Idle billing |
 | [docs/PORTFOLIO-DEMO.md](docs/PORTFOLIO-DEMO.md) | Talk track — bring stack up the night before |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Now / Next / Later + OSS commercial boundary |
 | [control-plane/README.md](control-plane/README.md) | Clerk + Neon peer portal (Phase 3) |
 
 ## Project layout
