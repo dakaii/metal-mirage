@@ -10,7 +10,8 @@ Bring the stack up the night before. Do **not** run full `./scripts/up.sh all` l
 4. **GitOps** — Flux + `gitops/apps/demo`; standby patches replicas to 0.
 5. **Failover** — Traffic Manager priority + witness Function probing `/readyz`.
 6. **VPN** — connect WireGuard, `curl ifconfig.me` shows Azure egress; Grafana/Prometheus scrape.
-7. **Next** — real bare metal provisioner; Clerk+Neon peer portal in `control-plane/`.
+7. **Portable L1** — show `config/clusters.bare-metal.example.yaml` + `./scripts/validate-inventory.sh` (offline); mention `infra/bare-metal` dryRun.
+8. **Optional** — Clerk+Neon peer portal in `control-plane/`.
 
 ## Live commands (safe)
 

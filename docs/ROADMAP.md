@@ -8,16 +8,16 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 
 | Area | Status intent |
 |------|----------------|
-| Pulumi Go stacks: `primary` (Talos metal-sim), `standby-aks`, `shared` (Traffic Manager + witness), `vpn-gateways` | Ship / harden |
-| Scripts: `register-talos-image`, `up` / `destroy`, `vpn-bootstrap`, `install-flux`, `deploy-witness` | Documented, runnable |
+| Pulumi Go stacks: `primary` (Talos metal-sim), `bare-metal` (thin L1), `standby-aks`, `shared` (Traffic Manager + witness), `vpn-gateways` | Ship / harden |
+| Scripts: `register-talos-image`, `up` / `destroy`, `validate-inventory`, `vpn-bootstrap`, `install-flux`, `deploy-witness` | Documented, runnable |
 | GitOps: Flux bootstrap path + demo app + monitoring scrape/alert hints | Kustomize-valid |
 | Docs: ARCHITECTURE, DEPLOY, VPN, COST, PORTABLE, CONFIG, BEST-PRACTICES, this ROADMAP | Honest portfolio/self-host framing |
 | Optional Phase 3 demo: Clerk + Neon peer registry in `control-plane/` | Minimal API only; clearly optional |
-| CI: Go build/fmt/vet matrix + kustomize + shellcheck + actionlint + gitleaks; PRs into `main` ([CONTRIBUTING.md](../CONTRIBUTING.md)) | Keep green; no Azure secrets in CI |
+| CI: Go build/fmt/vet matrix (incl. `infra/bare-metal` + inventory tests) + kustomize + shellcheck + actionlint + gitleaks; PRs into `main` ([CONTRIBUTING.md](../CONTRIBUTING.md)) | Keep green; no Azure secrets in CI |
 
 ## Next (OSS hardening)
 
-- Portable L1 switch: `azure-metal-sim` → real bare metal with the same Talos machine-config + Flux contract ([PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md))
+- [x] Portable L1 switch: `azure-metal-sim` → `infra/bare-metal` with inventory contract + dryRun offline demo (live metal still needs hardware + `dryRun=false`) — [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md)
 - Operator runbooks: DR drill (Traffic Manager + witness), VPN peer lifecycle without a SaaS product
 - Deeper VPN observability (Prometheus scrape wiring, dashboard polish) — still single-tenant / self-host
 - Contributor UX: config examples, clearer failure messages in scripts, secret-scan hygiene

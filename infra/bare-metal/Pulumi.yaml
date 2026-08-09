@@ -1,0 +1,3 @@
+name: metal-mirage-bare-metal
+runtime: go
+description: Thin Talos primary provisioner for real bare-metal nodes (portable L1)

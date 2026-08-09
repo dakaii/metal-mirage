@@ -1,19 +1,19 @@
 # Switch provisioner per cluster. Layers above L1 stay the same.
 #
 # azure-metal-sim: Talos on Azure VMs (default — no home public IP required)
-# bare-metal:      real hardware using the same Talos machine-config path
+# bare-metal:      real hardware via infra/bare-metal (same Talos + Flux contract)
+#
+# Example bare-metal inventory: config/clusters.bare-metal.example.yaml
+# Docs: docs/PORTABLE-ARCHITECTURE.md
 
 primary:
   provisioner: azure-metal-sim
   pulumi_dir: infra/primary
   profile: primary
-  # For bare-metal later, set:
-  # provisioner: bare-metal
-  # nodes:
-  #   - role: controlplane
-  #     ip: 192.168.1.10
-  #   - role: worker
-  #     ip: 192.168.1.11
+  # To switch primary to real metal:
+  #   1. Copy nodes from clusters.bare-metal.example.yaml
+  #   2. Set provisioner: bare-metal and pulumi_dir: infra/bare-metal
+  #   3. ./scripts/validate-inventory.sh && ./scripts/up.sh primary
 
 standby:
   provisioner: aks

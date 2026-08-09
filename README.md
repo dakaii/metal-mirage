@@ -85,15 +85,16 @@ pulumi login   # or pulumi login --local
 ## Project layout
 
 ```
-config/clusters.yaml       ← provisioner switch
+config/clusters.yaml       ← provisioner switch (+ bare-metal example)
 infra/primary/             ← Talos on Azure VMs (metal-sim)
+infra/bare-metal/          ← thin Talos L1 for real hardware (dryRun offline)
 infra/standby-aks/         ← AKS standby + Velero Blob
 infra/shared/              ← Traffic Manager + witness
 infra/vpn-gateways/        ← WireGuard city exits (cloud-init)
 infra/flux-bootstrap/      ← Flux Helm controllers
 gitops/                    ← Flux manifests
 control-plane/             ← optional Clerk + Neon peer portal (Phase 3)
-scripts/                   ← up / destroy / vpn helpers
+scripts/                   ← up / destroy / validate-inventory / vpn helpers
 docs/
 ```
 
