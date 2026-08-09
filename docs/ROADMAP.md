@@ -21,6 +21,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 - Operator runbooks: DR drill (Traffic Manager + witness), VPN peer lifecycle without a SaaS product
 - Deeper VPN observability (Prometheus scrape wiring, dashboard polish) — still single-tenant / self-host
 - Contributor UX: config examples, clearer failure messages in scripts, secret-scan hygiene
+- PR-based contribution flow ([CONTRIBUTING.md](../CONTRIBUTING.md)): branch from `main`, CI must pass; no direct feature pushes to `main`
 - Optional: small reconciler that pushes peer pubkeys from the control-plane DB to the VPN VM (operator-grade, not multi-tenant abuse controls)
 
 ## Later — commercial / out of this repo

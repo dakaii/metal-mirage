@@ -8,6 +8,8 @@ Inspired by [fantastic-spoon](https://github.com/dakaii/fantastic-spoon), rebuil
 
 **Deep dive:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
+**Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md) — branch from `main`, open a PR; do not push feature work straight to `main`.
+
 ## Architecture
 
 ```
