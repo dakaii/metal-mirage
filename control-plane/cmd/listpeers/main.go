@@ -6,6 +6,9 @@
 //	DATABASE_URL=… go run ./cmd/listpeers -city us
 //
 // Output (TSV): public_key<TAB>allocated_ip<TAB>name<TAB>id
+//
+// Read-only: does not run migrations. Bring up ./cmd/server once (or otherwise
+// apply the peers schema) before using this tool.
 package main
 
 import (
@@ -46,13 +49,9 @@ func main() {
 	}
 	defer pool.Close()
 
-	if err := db.Migrate(ctx, pool); err != nil {
-		log.Fatalf("migrate: %v", err)
-	}
-
 	list, err := peers.NewStore(pool).ListByCity(ctx, *city)
 	if err != nil {
-		log.Fatalf("list: %v", err)
+		log.Fatalf("list: %v (is the peers schema migrated? run control-plane ./cmd/server once)", err)
 	}
 	for _, p := range list {
 		fmt.Printf("%s\t%s\t%s\t%s\n", p.PublicKey, p.AllocatedIP, p.Name, p.ID)

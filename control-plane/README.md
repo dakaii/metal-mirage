@@ -20,6 +20,7 @@ Pushing the peer public key to the VPN VM is still an operator step in V1
 ```bash
 DATABASE_URL='…' ./scripts/vpn-reconcile-peers.sh
 # optional: --prune removes WireGuard peers absent from the DB for that city
+# (refuses if the DB has zero peers unless RECONCILE_I_MEAN_IT=1)
 ```
 
 `DELETE /api/peers/{id}` removes the DB row only — re-run reconcile with `--prune` to drop it from `wg`.

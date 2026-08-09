@@ -6,8 +6,9 @@
 #   DATABASE_URL='postgres://…' ./scripts/vpn-reconcile-peers.sh
 #   DATABASE_URL='…' ./scripts/vpn-reconcile-peers.sh --dry-run
 #   DATABASE_URL='…' ./scripts/vpn-reconcile-peers.sh --prune
+#   RECONCILE_I_MEAN_IT=1 … --prune   # required if DB has zero peers for the city
 #
-# Requires: pulumi, ssh, go (for control-plane/cmd/listpeers).
+# Requires: pulumi, ssh, go (for control-plane/cmd/listpeers); python3 if loading control-plane/.env.
 # Does not put Neon credentials on the VPN VM — runs from the operator laptop.
 set -euo pipefail
 
@@ -34,7 +35,24 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+command -v pulumi >/dev/null || {
+  echo "missing pulumi" >&2
+  exit 1
+}
+command -v ssh >/dev/null || {
+  echo "missing ssh" >&2
+  exit 1
+}
+command -v go >/dev/null || {
+  echo "missing go (needed for control-plane/cmd/listpeers)" >&2
+  exit 1
+}
+
 if [[ -z "${DATABASE_URL:-}" && -f "${ROOT}/control-plane/.env" ]]; then
+  command -v python3 >/dev/null || {
+    echo "missing python3 (needed to load DATABASE_URL from control-plane/.env)" >&2
+    exit 1
+  }
   # Load DSN without `set -a; source` (ampersands in query params break that).
   DATABASE_URL="$(
     python3 - <<PY
@@ -52,19 +70,6 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
   exit 1
 fi
 export DATABASE_URL
-
-command -v pulumi >/dev/null || {
-  echo "missing pulumi" >&2
-  exit 1
-}
-command -v ssh >/dev/null || {
-  echo "missing ssh" >&2
-  exit 1
-}
-command -v go >/dev/null || {
-  echo "missing go (needed for control-plane/cmd/listpeers)" >&2
-  exit 1
-}
 
 cd "${ROOT}/infra/vpn-gateways"
 if ! pulumi stack select "${STACK}" >/dev/null 2>&1; then
@@ -178,6 +183,11 @@ else
 fi
 
 if [[ "${PRUNE}" -eq 1 ]]; then
+  if [[ "${DESIRED_COUNT}" -eq 0 && "${RECONCILE_I_MEAN_IT:-}" != "1" ]]; then
+    echo "refusing --prune with zero DB peers for city=${CITY} (would remove every WireGuard peer on the VM)" >&2
+    echo "re-run with RECONCILE_I_MEAN_IT=1 if that wipe is intentional" >&2
+    exit 1
+  fi
   echo "==> Pruning WireGuard peers not in DB for city=${CITY}"
   # Peers on VM whose pubkey is absent from desired set.
   EXTRA="$(
