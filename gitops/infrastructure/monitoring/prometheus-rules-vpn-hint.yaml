@@ -7,14 +7,14 @@ metadata:
   namespace: monitoring
 data:
   README: |
-    After installing kube-prometheus-stack (Helm), apply the sample rule:
+    After installing kube-prometheus-stack (Helm), apply the sample rules:
 
       kubectl apply -f gitops/infrastructure/monitoring/optional/prometheus-rules-vpn.yaml
 
     Or copy the YAML into your Prometheus Operator values.
 
-    Note: peer-handshake alerts need a WireGuard exporter (not in vpn cloud-init).
-    The sample rule only uses node_exporter `up{job="vpn-gateway"}`.
+    Rules use node_exporter only (up / disk / memory). Peer-handshake alerts need
+    a WireGuard exporter (not installed by vpn cloud-init).
   prometheus-rules-vpn.yaml: |
     apiVersion: monitoring.coreos.com/v1
     kind: PrometheusRule
@@ -34,3 +34,27 @@ data:
                 severity: critical
               annotations:
                 summary: VPN gateway {{ $labels.city }} is down
+            - alert: VPNGatewayDiskAlmostFull
+              expr: |
+                (
+                  node_filesystem_avail_bytes{job="vpn-gateway",mountpoint="/",fstype!~"tmpfs|overlay"}
+                  /
+                  node_filesystem_size_bytes{job="vpn-gateway",mountpoint="/",fstype!~"tmpfs|overlay"}
+                ) < 0.15
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: VPN gateway {{ $labels.city }} root filesystem <15% free
+            - alert: VPNGatewayMemoryLow
+              expr: |
+                (
+                  node_memory_MemAvailable_bytes{job="vpn-gateway"}
+                  /
+                  node_memory_MemTotal_bytes{job="vpn-gateway"}
+                ) < 0.10
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: VPN gateway {{ $labels.city }} available memory <10%

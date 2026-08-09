@@ -2,8 +2,8 @@
 # (install kube-prometheus-stack first). Not included in the default
 # monitoring kustomization so Flux stays green without that stack.
 #
-# VPNGatewayDown uses node_exporter `up` (installed by vpn cloud-init).
-# Peer-handshake alerts need a WireGuard exporter (not shipped in V1) — omitted.
+# All rules use node_exporter (vpn cloud-init). Peer/handshake alerts need a
+# WireGuard exporter — out of V1.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -22,3 +22,27 @@ spec:
             severity: critical
           annotations:
             summary: VPN gateway {{ $labels.city }} is down
+        - alert: VPNGatewayDiskAlmostFull
+          expr: |
+            (
+              node_filesystem_avail_bytes{job="vpn-gateway",mountpoint="/",fstype!~"tmpfs|overlay"}
+              /
+              node_filesystem_size_bytes{job="vpn-gateway",mountpoint="/",fstype!~"tmpfs|overlay"}
+            ) < 0.15
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: VPN gateway {{ $labels.city }} root filesystem <15% free
+        - alert: VPNGatewayMemoryLow
+          expr: |
+            (
+              node_memory_MemAvailable_bytes{job="vpn-gateway"}
+              /
+              node_memory_MemTotal_bytes{job="vpn-gateway"}
+            ) < 0.10
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: VPN gateway {{ $labels.city }} available memory <10%

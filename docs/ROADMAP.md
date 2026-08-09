@@ -18,12 +18,13 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 
 ## Next (OSS hardening)
 
-- Deeper VPN observability (Prometheus scrape wiring, dashboard polish) — still single-tenant / self-host
-- Contributor UX: secret-scan hygiene polish (script/error/config examples improved)
 - Automate witness hook (Event Grid / scale standby) beyond `FAILOVER_CANDIDATE` logs — still optional
+- Contributor UX: secret-scan hygiene polish
 
 ### Recently landed
 
+- Contributor UX: clearer script errors (`lib.sh` helpers), bare-metal dual-inventory docs, Go 1.26 prereqs
+- VPN observability: Helm scrape fragment + adminCidr caveat, Grafana dashboard polish, node_exporter disk/memory alerts (no WG exporter)
 - DR drill runbook: [DR.md](DR.md) (Traffic Manager `:80/healthz` vs witness `:6443/readyz`)
 - Optional peer reconciler: `./scripts/vpn-reconcile-peers.sh` (+ `control-plane/cmd/listpeers`) — DB → `wg set`, optional `--prune`
 

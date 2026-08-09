@@ -35,13 +35,17 @@ Reads Neon directly (not the per-user HTTP API); SSHs like `vpn-bootstrap.sh`. D
 
 ## Monitoring
 
+Ceiling for V1: **host metrics via node_exporter** (CPU/mem/disk/net). No peer/handshake metrics (no WireGuard exporter).
+
 ```bash
-./scripts/vpn-prometheus-scrape-snippet.sh
+./scripts/vpn-prometheus-scrape-snippet.sh   # Helm values fragment for additionalScrapeConfigs
 ```
 
-Alert samples: `gitops/infrastructure/monitoring/optional/prometheus-rules-vpn.yaml` (needs PrometheusRule CRD). Hints ship in the default monitoring kustomization.
+Merge into kube-prometheus-stack, then upgrade/reconcile. Grafana dashboard ConfigMap `grafana-dashboard-vpn` (label `grafana_dashboard=1`) loads via the usual sidecar.
 
-`vpn:adminCidr` locks SSH and node_exporter; WireGuard UDP `51820` stays open for remote peers.
+Alert samples: `gitops/infrastructure/monitoring/optional/prometheus-rules-vpn.yaml` (needs PrometheusRule CRD) — `VPNGatewayDown` / disk / memory.
+
+`vpn:adminCidr` locks SSH and **TCP 9100** (node_exporter). WireGuard UDP `51820` stays open for remote peers. If `adminCidr` is your laptop `/32`, in-cluster Prometheus cannot scrape the public IP — widen NSG, use a jump host, or temporarily `0.0.0.0/0` for demos.
 
 ## Honesty
 
