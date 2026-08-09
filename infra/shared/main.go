@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/pulumi/pulumi-azure-native-sdk/network/v2"
 	"github.com/pulumi/pulumi-azure-native-sdk/resources/v2"
 	"github.com/pulumi/pulumi-azure-native-sdk/storage/v2"
@@ -98,6 +100,7 @@ func main() {
 func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config.Config) error {
 	primaryAPI := cfg.Require("primaryAPIURL")
 	failureThreshold := cfgGet(cfg, "witnessFailureThreshold", "3")
+	failoverWebhook := strings.TrimSpace(cfgGet(cfg, "failoverWebhookURL", ""))
 	stateContainer := "witness-state"
 
 	sa, err := storage.NewStorageAccount(ctx, "witnesssa", &storage.StorageAccountArgs{
@@ -160,14 +163,7 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 		Reserved:          pulumi.Bool(true),
 		SiteConfig: &web.SiteConfigArgs{
 			LinuxFxVersion: pulumi.String("PYTHON|3.11"),
-			AppSettings: web.NameValuePairArray{
-				&web.NameValuePairArgs{Name: pulumi.String("FUNCTIONS_EXTENSION_VERSION"), Value: pulumi.String("~4")},
-				&web.NameValuePairArgs{Name: pulumi.String("FUNCTIONS_WORKER_RUNTIME"), Value: pulumi.String("python")},
-				&web.NameValuePairArgs{Name: pulumi.String("AzureWebJobsStorage"), Value: secretConn},
-				&web.NameValuePairArgs{Name: pulumi.String("PRIMARY_API_URL"), Value: pulumi.String(primaryAPI)},
-				&web.NameValuePairArgs{Name: pulumi.String("FAILURE_THRESHOLD"), Value: pulumi.String(failureThreshold)},
-				&web.NameValuePairArgs{Name: pulumi.String("WITNESS_STATE_CONTAINER"), Value: pulumi.String(stateContainer)},
-			},
+			AppSettings:    witnessAppSettings(secretConn, primaryAPI, failureThreshold, stateContainer, failoverWebhook),
 		},
 	})
 	if err != nil {
@@ -178,7 +174,27 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 	ctx.Export("witnessDefaultHost", app.DefaultHostName)
 	ctx.Export("witnessStateContainer", pulumi.String(stateContainer))
 	ctx.Export("primaryAPIURL", pulumi.String(primaryAPI))
+	ctx.Export("failoverWebhookConfigured", pulumi.Bool(failoverWebhook != ""))
 	return nil
+}
+
+func witnessAppSettings(secretConn pulumi.StringOutput, primaryAPI, failureThreshold, stateContainer, failoverWebhook string) web.NameValuePairArray {
+	settings := web.NameValuePairArray{
+		&web.NameValuePairArgs{Name: pulumi.String("FUNCTIONS_EXTENSION_VERSION"), Value: pulumi.String("~4")},
+		&web.NameValuePairArgs{Name: pulumi.String("FUNCTIONS_WORKER_RUNTIME"), Value: pulumi.String("python")},
+		&web.NameValuePairArgs{Name: pulumi.String("AzureWebJobsStorage"), Value: secretConn},
+		&web.NameValuePairArgs{Name: pulumi.String("PRIMARY_API_URL"), Value: pulumi.String(primaryAPI)},
+		&web.NameValuePairArgs{Name: pulumi.String("FAILURE_THRESHOLD"), Value: pulumi.String(failureThreshold)},
+		&web.NameValuePairArgs{Name: pulumi.String("WITNESS_STATE_CONTAINER"), Value: pulumi.String(stateContainer)},
+	}
+	if failoverWebhook != "" {
+		// Treat as secret so the URL is encrypted in stack state.
+		settings = append(settings, &web.NameValuePairArgs{
+			Name:  pulumi.String("FAILOVER_WEBHOOK_URL"),
+			Value: pulumi.ToSecret(failoverWebhook).(pulumi.StringOutput),
+		})
+	}
+	return settings
 }
 
 func cfgGet(cfg *config.Config, key, def string) string {

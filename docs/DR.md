@@ -67,11 +67,12 @@ For a drill, either:
 3. Break API reachability (stop control-plane nodes, NSG-deny `:6443`, or wrong URL).
 4. After **≥3** consecutive minute failures, expect log line `FAILOVER_CANDIDATE`.
 5. Optional: inspect blob container `witness-state` / blob `failures.txt` (ETag-backed counter).
-6. **Manual** operator actions (witness does not automate these):
+6. Optional outbound hook: set `shared:failoverWebhookURL` (secret) so the Function POSTs JSON once when the threshold is crossed (`event=FAILOVER_CANDIDATE`). Still does **not** flip Traffic Manager or scale standby for you.
+7. **Manual** operator actions (unless your webhook does them):
    - Scale standby demo (GitOps or kubectl)
    - Optional Velero restore ([VELERO.md](VELERO.md))
    - Optionally disable / deprioritize the primary TM endpoint in Azure if the app is half-dead but still answering `/healthz`
-7. Restore primary API — witness should reset the counter and log `primary healthy`.
+8. Restore primary API — witness should reset the counter and log `primary healthy`.
 
 ## Drill C — Portfolio talk track
 
@@ -84,7 +85,7 @@ For a drill, either:
 ## Honesty
 
 - TM failover is **DNS-TTL**, not L4.
-- Witness is **advisory logging** only (hook comment in `infra/shared/witness/function_app.py` is unimplemented).
+- Witness is advisory by default (logs `FAILOVER_CANDIDATE`). Optional `failoverWebhookURL` POSTs once at threshold crossing — you still own TM/standby actions.
 - Leaving `:6443` open for Function egress is intentional when witness is enabled ([BEST-PRACTICES.md](BEST-PRACTICES.md)).
 - **VPN city exits are out of this path** — no peer failover in V1 ([VPN.md](VPN.md)). Peer DB→VM sync is `./scripts/vpn-reconcile-peers.sh`, not TM.
 

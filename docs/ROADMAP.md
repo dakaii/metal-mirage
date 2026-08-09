@@ -18,11 +18,12 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 
 ## Next (OSS hardening)
 
-- Automate witness hook (Event Grid / scale standby) beyond `FAILOVER_CANDIDATE` logs — still optional
 - Contributor UX: secret-scan hygiene polish
+- Richer failover automation (scale standby / disable TM endpoint) beyond optional webhook
 
 ### Recently landed
 
+- Witness optional `failoverWebhookURL` — POST JSON once at threshold crossing (still no auto TM/scale)
 - Contributor UX: clearer script errors (`lib.sh` helpers), bare-metal dual-inventory docs, Go 1.26 prereqs
 - VPN observability: Helm scrape fragment + adminCidr caveat, Grafana dashboard polish, node_exporter disk/memory alerts (no WG exporter)
 - DR drill runbook: [DR.md](DR.md) (Traffic Manager `:80/healthz` vs witness `:6443/readyz`)
