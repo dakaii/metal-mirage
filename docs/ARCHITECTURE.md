@@ -9,7 +9,7 @@ Successor ideas from [fantastic-spoon](https://github.com/dakaii/fantastic-spoon
 1. **Portability** — swap Azure metal-sim for real bare metal by changing Layer 1 only.
 2. **API-driven bootstrap** — Talos machine config via Pulumi; no SSH playbooks for the K8s OS.
 3. **Honest DR story** — primary + AKS standby behind priority Traffic Manager + a witness Function ([DR.md](DR.md)).
-4. **Split planes** — consumer VPN is not on the Traefik/HTTP path; platform ops stay on Talos/Flux.
+4. **Split planes** — consumer VPN is not on the HTTP demo path; platform ops stay on Talos/Flux.
 5. **Demoable cost** — destroy stacks when idle; see [COST.md](COST.md).
 
 ## Layer model
@@ -51,14 +51,14 @@ Provisioner switch lives in [`config/clusters.yaml`](../config/clusters.yaml). L
                     ┌──────────▼──────────┐
                     │                     │
            Primary (Talos / metal-sim)   AKS standby
-           ingress PIP :443              aks FQDN
+           ingress PIP :80               aks FQDN
                     │
                     │  Flux reconciles gitops/
                     ▼
               demo app + monitoring
 
    VPN clients ──UDP 51820──► WireGuard city VM (public IP) ──NAT──► internet
-                              (separate RG / stack; not Traefik)
+                              (separate RG / stack; not on HTTP path)
 ```
 
 Witness Function (when enabled) probes cluster readiness (`/readyz`-style checks via deploy scripts) so operators have an out-of-band signal beyond Traffic Manager’s HTTP `/healthz` monitor.
@@ -120,7 +120,7 @@ VPN gateways:
 - Own resource group and VNet (`10.66.0.0/16`).
 - cloud-init installs WireGuard; `scripts/vpn-bootstrap.sh` mints peer configs.
 - NSG allows UDP 51820 from anywhere (peers); SSH / node-exporter from `adminCidr` only.
-- Not fronted by Traefik; clients use official WireGuard apps only.
+- Not on the HTTP/demo path; clients use official WireGuard apps only.
 
 Multi-city = another stack/region with a `city` tag; clients switch profiles manually (no auto peer failover in V1). Details: [VPN.md](VPN.md).
 

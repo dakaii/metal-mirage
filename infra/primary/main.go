@@ -79,9 +79,9 @@ func main() {
 				// 6443 stays open so the shared witness Function can probe /readyz
 				// (Azure Functions egress is not your adminCidr). Lock further if unused.
 				tcpAllow("allow-k8s-api", 1004, "6443", "*"),
-				tcpAllow("allow-https", 1005, "443", "*"),
-				tcpAllow("allow-http", 1006, "80", "*"),
-				tcpAllow("allow-demo-nodeport", 1007, fmt.Sprintf("%d", demoNodePort), "*"),
+				// Portfolio demo is HTTP :80 → NodePort (no TLS terminator / Traefik yet).
+				tcpAllow("allow-http", 1005, "80", "*"),
+				tcpAllow("allow-demo-nodeport", 1006, fmt.Sprintf("%d", demoNodePort), "*"),
 			},
 		})
 		if err != nil {

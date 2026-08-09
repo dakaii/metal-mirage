@@ -2,7 +2,6 @@ package auth
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/clerk/clerk-sdk-go/v2"
 	clerkhttp "github.com/clerk/clerk-sdk-go/v2/http"
@@ -32,8 +31,4 @@ func UserID(r *http.Request) string {
 		return ""
 	}
 	return sess.Subject
-}
-
-func HasBearer(r *http.Request) bool {
-	return strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ")
 }

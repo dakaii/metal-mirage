@@ -25,6 +25,4 @@ shared:
 
 vpn:
   pulumi_dir: infra/vpn-gateways
-  cities:
-    us:
-      location: eastus
+  # City/region come from Pulumi stack config (vpn:city / vpn:location), not this file.

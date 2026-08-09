@@ -42,7 +42,7 @@ Only Layer 1 changes when you move from Azure VMs to real hardware. Talos machin
 
 **Why Talos / no Ansible:** machine secrets and configs are Pulumi resources; there is no SSH playbook layer for the Kubernetes OS. VPN still uses cloud-init on Ubuntu because city exits are ordinary Linux appliances on a separate plane — not Talos nodes.
 
-**VPN vs platform:** WireGuard is full-tunnel egress on its own stack/RG. Traefik / Flux / demo apps stay on the Talos (or AKS) path. Stock WireGuard clients only.
+**VPN vs platform:** WireGuard is full-tunnel egress on its own stack/RG. Flux / demo apps stay on the Talos (or AKS) path via Azure LB → NodePort (no Traefik in the portfolio path). Stock WireGuard clients only.
 
 **Failover honesty:** Traffic Manager follows DNS TTL (profile TTL 30s plus resolver caches) — portfolio DR, not instant L4 cutover.
 

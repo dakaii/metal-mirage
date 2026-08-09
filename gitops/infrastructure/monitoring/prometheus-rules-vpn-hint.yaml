@@ -12,6 +12,9 @@ data:
       kubectl apply -f gitops/infrastructure/monitoring/optional/prometheus-rules-vpn.yaml
 
     Or copy the YAML into your Prometheus Operator values.
+
+    Note: peer-handshake alerts need a WireGuard exporter (not in vpn cloud-init).
+    The sample rule only uses node_exporter `up{job="vpn-gateway"}`.
   prometheus-rules-vpn.yaml: |
     apiVersion: monitoring.coreos.com/v1
     kind: PrometheusRule
@@ -31,10 +34,3 @@ data:
                 severity: critical
               annotations:
                 summary: VPN gateway {{ $labels.city }} is down
-            - alert: WireGuardPeerHandshakeStale
-              expr: time() - wireguard_peer_last_handshake_seconds > 300
-              for: 10m
-              labels:
-                severity: warning
-              annotations:
-                summary: WireGuard peer handshake stale on {{ $labels.city }}
