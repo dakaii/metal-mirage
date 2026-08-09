@@ -1,0 +1,30 @@
+# Switch provisioner per cluster. Layers above L1 stay the same.
+#
+# azure-metal-sim: Talos on Azure VMs (default — no home public IP required)
+# bare-metal:      real hardware using the same Talos machine-config path
+
+primary:
+  provisioner: azure-metal-sim
+  pulumi_dir: infra/primary
+  profile: primary
+  # For bare-metal later, set:
+  # provisioner: bare-metal
+  # nodes:
+  #   - role: controlplane
+  #     ip: 192.168.1.10
+  #   - role: worker
+  #     ip: 192.168.1.11
+
+standby:
+  provisioner: aks
+  pulumi_dir: infra/standby-aks
+  profile: standby
+
+shared:
+  pulumi_dir: infra/shared
+
+vpn:
+  pulumi_dir: infra/vpn-gateways
+  cities:
+    us:
+      location: eastus

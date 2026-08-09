@@ -1,0 +1,3 @@
+name: azure-hybrid-vpn
+runtime: go
+description: WireGuard consumer VPN city exits on Azure VMs

@@ -1,0 +1,3 @@
+name: azure-hybrid-standby
+runtime: go
+description: AKS standby cluster and Velero backup storage

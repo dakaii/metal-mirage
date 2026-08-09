@@ -1,0 +1,36 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  go-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dir:
+          - infra/primary
+          - infra/standby-aks
+          - infra/shared
+          - infra/vpn-gateways
+          - infra/flux-bootstrap
+          - control-plane
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+      - name: tidy and build
+        working-directory: ${{ matrix.dir }}
+        run: |
+          go mod tidy
+          go build ./...
+  kustomize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: validate kustomize
+        run: |
+          curl -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.3/kustomize_v5.4.3_linux_amd64.tar.gz" | tar xz
+          ./kustomize build gitops/apps >/dev/null
+          ./kustomize build gitops/infrastructure/monitoring >/dev/null

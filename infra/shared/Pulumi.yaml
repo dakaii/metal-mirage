@@ -1,0 +1,3 @@
+name: azure-hybrid-shared
+runtime: go
+description: Traffic Manager failover and witness Function

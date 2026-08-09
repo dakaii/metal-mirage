@@ -1,0 +1,25 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: vpn-gateway
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: vpn-gateway
+      rules:
+        - alert: VPNGatewayDown
+          expr: up{job="vpn-gateway"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: VPN gateway {{ $labels.city }} is down
+        - alert: WireGuardPeerHandshakeStale
+          expr: time() - wireguard_peer_last_handshake_seconds > 300
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: WireGuard peer handshake stale on {{ $labels.city }}

@@ -1,0 +1,42 @@
+# Pulumi
+.pulumi/
+**/Pulumi.*.yaml
+!**/Pulumi.yaml
+
+# Secrets / local outputs
+*.kubeconfig
+kubeconfig*
+talosconfig*
+.secrets/
+vpn-clients/
+*.pem
+*.key
+
+# Go
+**/vendor/
+**/bin/
+control-plane/server
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Node (if any)
+node_modules/
+
+# Pulumi Go program binaries (local builds)
+infra/*/infra-*
+
+# Ensure stack binaries stay local
+infra/flux-bootstrap/infra-flux
+infra/primary/infra-primary
+infra/shared/infra-shared
+infra/standby-aks/infra-standby-aks
+infra/vpn-gateways/infra-vpn

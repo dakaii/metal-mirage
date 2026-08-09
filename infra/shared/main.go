@@ -1,0 +1,162 @@
+package main
+
+import (
+	"github.com/pulumi/pulumi-azure-native-sdk/network/v2"
+	"github.com/pulumi/pulumi-azure-native-sdk/resources/v2"
+	"github.com/pulumi/pulumi-azure-native-sdk/storage/v2"
+	web "github.com/pulumi/pulumi-azure-native-sdk/web/v2"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
+)
+
+func main() {
+	pulumi.Run(func(ctx *pulumi.Context) error {
+		cfg := config.New(ctx, "shared")
+		location := cfg.Get("location")
+		if location == "" {
+			location = "eastus"
+		}
+		primaryIP := cfg.Require("primaryIngressIP")
+		standbyFQDN := cfg.Get("standbyFQDN")
+		appDomain := cfg.Get("appDomain")
+		enableWitness := true
+		if cfg.Get("enableWitness") == "false" {
+			enableWitness = false
+		}
+
+		rg, err := resources.NewResourceGroup(ctx, "shared-rg", &resources.ResourceGroupArgs{
+			Location: pulumi.String(location),
+		})
+		if err != nil {
+			return err
+		}
+
+		profile, err := network.NewProfile(ctx, "app-failover", &network.ProfileArgs{
+			ResourceGroupName:           rg.Name,
+			TrafficRoutingMethod:        network.TrafficRoutingMethodPriority,
+			TrafficViewEnrollmentStatus: network.TrafficViewEnrollmentStatusDisabled,
+			DnsConfig: &network.DnsConfigArgs{
+				RelativeName: pulumi.String("azure-hybrid-app"),
+				Ttl:          pulumi.Float64(30),
+			},
+			MonitorConfig: &network.MonitorConfigArgs{
+				Protocol:                  network.MonitorProtocolHTTPS,
+				Port:                      pulumi.Float64(443),
+				Path:                      pulumi.String("/healthz"),
+				IntervalInSeconds:         pulumi.Float64(30),
+				TimeoutInSeconds:          pulumi.Float64(10),
+				ToleratedNumberOfFailures: pulumi.Float64(3),
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = network.NewEndpoint(ctx, "primary-endpoint", &network.EndpointArgs{
+			ResourceGroupName: rg.Name,
+			ProfileName:       profile.Name.Elem(),
+			EndpointType:      pulumi.String("ExternalEndpoints"),
+			EndpointStatus:    network.EndpointStatusEnabled,
+			Priority:          pulumi.Float64(1),
+			Target:            pulumi.String(primaryIP),
+		})
+		if err != nil {
+			return err
+		}
+
+		if standbyFQDN != "" {
+			_, err = network.NewEndpoint(ctx, "standby-endpoint", &network.EndpointArgs{
+				ResourceGroupName: rg.Name,
+				ProfileName:       profile.Name.Elem(),
+				EndpointType:      pulumi.String("ExternalEndpoints"),
+				EndpointStatus:    network.EndpointStatusEnabled,
+				Priority:          pulumi.Float64(2),
+				Target:            pulumi.String(standbyFQDN),
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		ctx.Export("trafficManagerFQDN", profile.DnsConfig.ApplyT(func(d *network.DnsConfigResponse) string {
+			if d == nil || d.RelativeName == nil {
+				return ""
+			}
+			return *d.RelativeName + ".trafficmanager.net"
+		}).(pulumi.StringOutput))
+		ctx.Export("appDomainHint", pulumi.String(appDomain))
+		ctx.Export("resourceGroupName", rg.Name)
+
+		if enableWitness {
+			if err := deployWitness(ctx, rg, cfg); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config.Config) error {
+	primaryAPI := cfg.Require("primaryAPIURL")
+
+	sa, err := storage.NewStorageAccount(ctx, "witnesssa", &storage.StorageAccountArgs{
+		ResourceGroupName: rg.Name,
+		Location:          rg.Location,
+		Sku:               &storage.SkuArgs{Name: storage.SkuName_Standard_LRS},
+		Kind:              storage.KindStorageV2,
+	})
+	if err != nil {
+		return err
+	}
+
+	plan, err := web.NewAppServicePlan(ctx, "witness-plan", &web.AppServicePlanArgs{
+		ResourceGroupName: rg.Name,
+		Location:          rg.Location,
+		Kind:              pulumi.String("FunctionApp"),
+		Sku: &web.SkuDescriptionArgs{
+			Name: pulumi.String("Y1"),
+			Tier: pulumi.String("Dynamic"),
+		},
+		Reserved: pulumi.Bool(true),
+	})
+	if err != nil {
+		return err
+	}
+
+	keys := storage.ListStorageAccountKeysOutput(ctx, storage.ListStorageAccountKeysOutputArgs{
+		ResourceGroupName: rg.Name,
+		AccountName:       sa.Name,
+	})
+	conn := pulumi.All(sa.Name, keys.Keys().Index(pulumi.Int(0)).Value()).ApplyT(func(args []any) string {
+		name := args[0].(string)
+		key := args[1].(string)
+		return "DefaultEndpointsProtocol=https;AccountName=" + name + ";AccountKey=" + key + ";EndpointSuffix=core.windows.net"
+	}).(pulumi.StringOutput)
+
+	app, err := web.NewWebApp(ctx, "witness-fn", &web.WebAppArgs{
+		ResourceGroupName: rg.Name,
+		Location:          rg.Location,
+		Kind:              pulumi.String("FunctionApp"),
+		ServerFarmId:      plan.ID(),
+		Reserved:          pulumi.Bool(true),
+		SiteConfig: &web.SiteConfigArgs{
+			LinuxFxVersion: pulumi.String("PYTHON|3.11"),
+			AppSettings: web.NameValuePairArray{
+				&web.NameValuePairArgs{Name: pulumi.String("FUNCTIONS_EXTENSION_VERSION"), Value: pulumi.String("~4")},
+				&web.NameValuePairArgs{Name: pulumi.String("FUNCTIONS_WORKER_RUNTIME"), Value: pulumi.String("python")},
+				&web.NameValuePairArgs{Name: pulumi.String("AzureWebJobsStorage"), Value: conn},
+				&web.NameValuePairArgs{Name: pulumi.String("PRIMARY_API_URL"), Value: pulumi.String(primaryAPI)},
+				&web.NameValuePairArgs{Name: pulumi.String("FAILURE_THRESHOLD"), Value: pulumi.String("3")},
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	ctx.Export("witnessFunctionName", app.Name)
+	ctx.Export("witnessDefaultHost", app.DefaultHostName)
+	ctx.Export("primaryAPIURL", pulumi.String(primaryAPI))
+	return nil
+}

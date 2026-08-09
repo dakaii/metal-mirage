@@ -1,0 +1,11 @@
+# Hint only — apply scrape via Helm values or scripts/vpn-prometheus-scrape-snippet.sh
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vpn-scrape-hint
+  namespace: monitoring
+data:
+  README: |
+    Run ./scripts/vpn-prometheus-scrape-snippet.sh after the vpn stack is up,
+    then add the YAML to kube-prometheus-stack additionalScrapeConfigs.
+    Install kube-prometheus-stack separately (Helm) if not already present.
