@@ -40,3 +40,4 @@ trap 'rm -f "${ZIP}"' EXIT
 echo "==> Deploying witness to ${APP} in ${RG}"
 az functionapp deployment source config-zip -g "${RG}" -n "${APP}" --src "${ZIP}"
 echo "Done. Timer probe runs every minute against shared:primaryAPIURL (/readyz)."
+echo "Failure counter lives in blob container witness-state (survives Y1 cold starts)."

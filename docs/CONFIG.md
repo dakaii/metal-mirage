@@ -82,8 +82,11 @@ AKS enables OIDC + workload identity. Velero storage uses a user-assigned identi
 | `shared:primaryAPIURL` | if witness enabled | — | e.g. `https://<api-ip>:6443/readyz` |
 | `shared:standbyFQDN` | no | — | AKS FQDN for priority-2 endpoint |
 | `shared:appDomain` | no | — | Custom domain hint export only |
-| `shared:enableWitness` | no | `true` | Set `false` to skip Function App |
+| `shared:enableWitness` | no | `true` | Set `false`/`0`/`no` to skip Function App |
+| `shared:witnessFailureThreshold` | no | `3` | Consecutive failed `/readyz` probes before `FAILOVER_CANDIDATE` |
 | `shared:location` | no | `eastus` | |
+
+Witness consecutive-failure state is stored in a private blob container (`witness-state`) on the Function storage account — not `/tmp` — so Consumption (Y1) cold starts keep the counter.
 
 `./scripts/up.sh shared` and `./scripts/up.sh all` wire ingress IP / API URL / standby FQDN from stack outputs when present.
 

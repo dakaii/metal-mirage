@@ -19,10 +19,7 @@ func main() {
 		primaryIP := cfg.Require("primaryIngressIP")
 		standbyFQDN := cfg.Get("standbyFQDN")
 		appDomain := cfg.Get("appDomain")
-		enableWitness := true
-		if cfg.Get("enableWitness") == "false" {
-			enableWitness = false
-		}
+		enableWitness := cfgGetBool(cfg, "enableWitness", true)
 
 		rg, err := resources.NewResourceGroup(ctx, "shared-rg", &resources.ResourceGroupArgs{
 			Location: pulumi.String(location),
@@ -100,12 +97,28 @@ func main() {
 
 func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config.Config) error {
 	primaryAPI := cfg.Require("primaryAPIURL")
+	failureThreshold := cfgGet(cfg, "witnessFailureThreshold", "3")
+	stateContainer := "witness-state"
 
 	sa, err := storage.NewStorageAccount(ctx, "witnesssa", &storage.StorageAccountArgs{
+		ResourceGroupName:      rg.Name,
+		Location:               rg.Location,
+		Sku:                    &storage.SkuArgs{Name: storage.SkuName_Standard_LRS},
+		Kind:                   storage.KindStorageV2,
+		AllowBlobPublicAccess:  pulumi.Bool(false),
+		EnableHttpsTrafficOnly: pulumi.Bool(true),
+		MinimumTlsVersion:      storage.MinimumTlsVersion_TLS1_2,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Durable counter for consecutive probe failures (Consumption Y1 has no sticky /tmp).
+	_, err = storage.NewBlobContainer(ctx, "witness-state", &storage.BlobContainerArgs{
 		ResourceGroupName: rg.Name,
-		Location:          rg.Location,
-		Sku:               &storage.SkuArgs{Name: storage.SkuName_Standard_LRS},
-		Kind:              storage.KindStorageV2,
+		AccountName:       sa.Name,
+		ContainerName:     pulumi.String(stateContainer),
+		PublicAccess:      storage.PublicAccessNone,
 	})
 	if err != nil {
 		return err
@@ -152,7 +165,8 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 				&web.NameValuePairArgs{Name: pulumi.String("FUNCTIONS_WORKER_RUNTIME"), Value: pulumi.String("python")},
 				&web.NameValuePairArgs{Name: pulumi.String("AzureWebJobsStorage"), Value: secretConn},
 				&web.NameValuePairArgs{Name: pulumi.String("PRIMARY_API_URL"), Value: pulumi.String(primaryAPI)},
-				&web.NameValuePairArgs{Name: pulumi.String("FAILURE_THRESHOLD"), Value: pulumi.String("3")},
+				&web.NameValuePairArgs{Name: pulumi.String("FAILURE_THRESHOLD"), Value: pulumi.String(failureThreshold)},
+				&web.NameValuePairArgs{Name: pulumi.String("WITNESS_STATE_CONTAINER"), Value: pulumi.String(stateContainer)},
 			},
 		},
 	})
@@ -162,6 +176,29 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 
 	ctx.Export("witnessFunctionName", app.Name)
 	ctx.Export("witnessDefaultHost", app.DefaultHostName)
+	ctx.Export("witnessStateContainer", pulumi.String(stateContainer))
 	ctx.Export("primaryAPIURL", pulumi.String(primaryAPI))
 	return nil
+}
+
+func cfgGet(cfg *config.Config, key, def string) string {
+	if v := cfg.Get(key); v != "" {
+		return v
+	}
+	return def
+}
+
+func cfgGetBool(cfg *config.Config, key string, def bool) bool {
+	v := cfg.Get(key)
+	if v == "" {
+		return def
+	}
+	switch v {
+	case "1", "true", "True", "TRUE", "yes", "YES", "on", "ON":
+		return true
+	case "0", "false", "False", "FALSE", "no", "NO", "off", "OFF":
+		return false
+	default:
+		return def
+	}
 }

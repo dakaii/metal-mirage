@@ -157,7 +157,7 @@ func main() {
 					LoadDistribution:        network.LoadDistributionDefault,
 					Probe:                   &network.SubResourceArgs{Id: probeID},
 					BackendAddressPool:      &network.SubResourceArgs{Id: backendID},
-					DisableOutboundSnat:     pulumi.Bool(false), // SNAT for workers without public IPs
+					DisableOutboundSnat:     pulumi.Bool(false),
 				},
 			},
 		})
@@ -184,10 +184,14 @@ func main() {
 		if err != nil {
 			return err
 		}
+		// Bake install-disk into generated configs so VM customData matches ConfigurationApply
+		// (same contract as infra/bare-metal).
+		diskPatches := pulumi.StringArray{pulumi.String(string(diskPatch))}
 
 		var firstNode pulumi.StringOutput
 		var bootstrapDeps []pulumi.Resource
 		cpIPs := make([]pulumi.StringInput, 0, cpCount)
+		workerIPs := make([]pulumi.StringInput, 0, workerCount)
 
 		for i := 0; i < cpCount; i++ {
 			name := fmt.Sprintf("cp-%d", i)
@@ -242,6 +246,7 @@ func main() {
 				MachineType:     pulumi.String("controlplane"),
 				ClusterEndpoint: clusterEndpoint,
 				MachineSecrets:  secrets.MachineSecrets,
+				ConfigPatches:   diskPatches,
 				Docs:            pulumi.Bool(false),
 				Examples:        pulumi.Bool(false),
 			})
@@ -255,7 +260,6 @@ func main() {
 				ClientConfiguration:       secrets.ClientConfiguration,
 				MachineConfigurationInput: cpCfg.MachineConfiguration(),
 				Node:                      nodeAddr,
-				ConfigPatches:             pulumi.StringArray{pulumi.String(string(diskPatch))},
 			}, pulumi.DependsOn([]pulumi.Resource{vm}))
 			if err != nil {
 				return err
@@ -267,7 +271,7 @@ func main() {
 			}
 		}
 
-		_, err = machine.NewBootstrap(ctx, "bootstrap", &machine.BootstrapArgs{
+		bootstrap, err := machine.NewBootstrap(ctx, "bootstrap", &machine.BootstrapArgs{
 			Node:                firstNode,
 			ClientConfiguration: secrets.ClientConfiguration,
 		}, pulumi.DependsOn(bootstrapDeps))
@@ -277,6 +281,22 @@ func main() {
 
 		for i := 0; i < workerCount; i++ {
 			name := fmt.Sprintf("worker-%d", i)
+
+			// Public IP so talosctl/ConfigurationApply from the operator machine can
+			// reach the node (private-only NICs are unreachable outside the VNet).
+			pip, err := network.NewPublicIPAddress(ctx, name+"-pip", &network.PublicIPAddressArgs{
+				ResourceGroupName:        rg.Name,
+				Location:                 rg.Location,
+				PublicIPAllocationMethod: network.IPAllocationMethodStatic,
+				Sku: &network.PublicIPAddressSkuArgs{
+					Name: network.PublicIPAddressSkuNameStandard,
+				},
+			})
+			if err != nil {
+				return err
+			}
+			nodeAddr := pip.IpAddress.Elem()
+			workerIPs = append(workerIPs, nodeAddr)
 
 			nic, err := network.NewNetworkInterface(ctx, name+"-nic", &network.NetworkInterfaceArgs{
 				ResourceGroupName: rg.Name,
@@ -289,6 +309,7 @@ func main() {
 						Name:                      pulumi.String("ipconfig"),
 						Subnet:                    &network.SubnetTypeArgs{Id: subnet.ID()},
 						PrivateIPAllocationMethod: network.IPAllocationMethodDynamic,
+						PublicIPAddress:           &network.PublicIPAddressTypeArgs{Id: pip.ID()},
 						LoadBalancerBackendAddressPools: network.BackendAddressPoolArray{
 							&network.BackendAddressPoolArgs{Id: backendID},
 						},
@@ -304,6 +325,7 @@ func main() {
 				MachineType:     pulumi.String("worker"),
 				ClusterEndpoint: clusterEndpoint,
 				MachineSecrets:  secrets.MachineSecrets,
+				ConfigPatches:   diskPatches,
 				Docs:            pulumi.Bool(false),
 				Examples:        pulumi.Bool(false),
 			})
@@ -313,24 +335,17 @@ func main() {
 				return err
 			}
 
-			privateIP := nic.IpConfigurations.ApplyT(func(cfgs []network.NetworkInterfaceIPConfigurationResponse) (string, error) {
-				if len(cfgs) == 0 || cfgs[0].PrivateIPAddress == nil {
-					return "", fmt.Errorf("worker nic has no private IP yet")
-				}
-				return *cfgs[0].PrivateIPAddress, nil
-			}).(pulumi.StringOutput)
-
 			_, err = machine.NewConfigurationApply(ctx, name+"-cfg", &machine.ConfigurationApplyArgs{
 				ClientConfiguration:       secrets.ClientConfiguration,
 				MachineConfigurationInput: wCfg.MachineConfiguration(),
-				Node:                      privateIP,
-				ConfigPatches:             pulumi.StringArray{pulumi.String(string(diskPatch))},
-			}, pulumi.DependsOn([]pulumi.Resource{vm}))
+				Node:                      nodeAddr,
+			}, pulumi.DependsOn([]pulumi.Resource{vm, bootstrap}))
 			if err != nil {
 				return err
 			}
 		}
 
+		// Wait for Bootstrap so the first kubeconfig fetch is not racing etcd/API bring-up.
 		kubeconfig, err := taloscluster.NewKubeconfig(ctx, "kubeconfig", &taloscluster.KubeconfigArgs{
 			ClientConfiguration: &taloscluster.KubeconfigClientConfigurationArgs{
 				CaCertificate:     secrets.ClientConfiguration.CaCertificate(),
@@ -339,7 +354,7 @@ func main() {
 			},
 			Node:     firstNode,
 			Endpoint: firstNode,
-		}, pulumi.DependsOn(bootstrapDeps))
+		}, pulumi.DependsOn([]pulumi.Resource{bootstrap}))
 		if err != nil {
 			return err
 		}
@@ -351,6 +366,7 @@ func main() {
 		ctx.Export("demoNodePort", pulumi.Int(demoNodePort))
 		ctx.Export("installDisk", pulumi.String(installDisk))
 		ctx.Export("controlPlanePublicIPs", pulumi.StringArray(cpIPsToArray(cpIPs)))
+		ctx.Export("workerPublicIPs", pulumi.StringArray(cpIPsToArray(workerIPs)))
 		ctx.Export("clusterEndpoint", clusterEndpoint)
 		ctx.Export("kubeconfig", pulumi.ToSecret(kubeconfig.KubeconfigRaw))
 		ctx.Export("provisioner", pulumi.String("azure-metal-sim"))

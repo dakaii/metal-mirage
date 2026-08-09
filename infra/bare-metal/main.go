@@ -105,7 +105,7 @@ func main() {
 		}
 
 		if !dryRun {
-			_, err = machine.NewBootstrap(ctx, "bootstrap", &machine.BootstrapArgs{
+			bootstrap, err := machine.NewBootstrap(ctx, "bootstrap", &machine.BootstrapArgs{
 				Node:                pulumi.String(firstNode),
 				ClientConfiguration: secrets.ClientConfiguration,
 			}, pulumi.DependsOn(bootstrapDeps))
@@ -113,6 +113,7 @@ func main() {
 				return err
 			}
 
+			// Wait for Bootstrap so kubeconfig fetch is not racing etcd/API bring-up.
 			kubeconfig, err := taloscluster.NewKubeconfig(ctx, "kubeconfig", &taloscluster.KubeconfigArgs{
 				ClientConfiguration: &taloscluster.KubeconfigClientConfigurationArgs{
 					CaCertificate:     secrets.ClientConfiguration.CaCertificate(),
@@ -121,7 +122,7 @@ func main() {
 				},
 				Node:     pulumi.String(firstNode),
 				Endpoint: pulumi.String(apiEndpointIP),
-			})
+			}, pulumi.DependsOn([]pulumi.Resource{bootstrap}))
 			if err != nil {
 				return err
 			}
