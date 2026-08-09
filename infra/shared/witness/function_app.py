@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import ssl
@@ -101,6 +102,37 @@ def _increment_failures() -> int:
     raise RuntimeError("failed to increment witness failure count after retries")
 
 
+def _notify_failover(failures: int, threshold: int) -> None:
+    """Optional outbound hook when the failure threshold is first crossed.
+
+    Set FAILOVER_WEBHOOK_URL to an HTTPS endpoint (Event Grid subscription,
+    Logic App, Slack incoming webhook, etc.). Empty/unset = log-only (default).
+    Fires once at the crossing (failures == threshold), not every later minute.
+    """
+    hook = os.environ.get("FAILOVER_WEBHOOK_URL", "").strip()
+    if not hook:
+        return
+    payload = json.dumps(
+        {
+            "event": "FAILOVER_CANDIDATE",
+            "consecutive_failures": failures,
+            "threshold": threshold,
+            "primary_api_url": os.environ.get("PRIMARY_API_URL", ""),
+        }
+    ).encode("utf-8")
+    req = urllib.request.Request(
+        hook,
+        data=payload,
+        method="POST",
+        headers={"Content-Type": "application/json", "User-Agent": "metal-mirage-witness/1"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            logging.info("failover webhook status=%s", resp.status)
+    except Exception as exc:  # noqa: BLE001 — never crash the timer on webhook failure
+        logging.error("failover webhook failed: %s", exc)
+
+
 @app.timer_trigger(schedule="0 */1 * * * *", arg_name="timer", run_on_startup=False)
 def probe_primary(timer: func.TimerRequest) -> None:
     """Probe primary Kubernetes /readyz every minute; log when threshold exceeded."""
@@ -138,8 +170,9 @@ def probe_primary(timer: func.TimerRequest) -> None:
 
     logging.error("primary unhealthy consecutive_failures=%s threshold=%s", n, threshold)
     if n >= threshold:
-        # Hook point: publish to Event Grid / webhook / scale standby apps.
         logging.error("FAILOVER_CANDIDATE primary down for %s probes", n)
+        if n == threshold:
+            _notify_failover(n, threshold)
 
 
 @app.route(route="health", auth_level=func.AuthLevel.ANONYMOUS)
