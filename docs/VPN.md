@@ -1,14 +1,15 @@
-# Consumer VPN
+# Self-host WireGuard (personal exit)
 
 Full-tunnel WireGuard exit on a dedicated Azure VM (cloud-init — **no Ansible**).
-Stock WireGuard clients only. Not on the HTTP/demo path (Azure LB → NodePort).
+Stock WireGuard clients only. Intended for **your** devices — not a multi-tenant commercial VPN.
+Not on the HTTP/demo path (Azure LB → NodePort). Legality / intended use: [LEGAL.md](LEGAL.md).
 
-## Product vs platform
+## Exit vs platform
 
 | Plane | Role |
 |-------|------|
-| WireGuard gateway | Device traffic → NAT → internet |
-| Talos + Flux + demo LB | Operate/monitor the platform (portfolio path: Azure LB → NodePort `30080`, no Traefik) |
+| WireGuard gateway | Your device traffic → NAT → internet |
+| Talos + Flux + demo LB | Operate/monitor the platform (lab path: Azure LB → NodePort `30080`, no Traefik) |
 
 ## Deploy
 

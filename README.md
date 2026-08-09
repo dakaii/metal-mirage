@@ -77,6 +77,7 @@ pulumi login   # or pulumi login --local
 | [docs/BEST-PRACTICES.md](docs/BEST-PRACTICES.md) | Operator security / GitOps / teardown checklist |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Branch from `main`, open a PR; CI check names |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Now / Next / Later + OSS commercial boundary |
+| [docs/LEGAL.md](docs/LEGAL.md) | Personal/self-host intent + legality research notes |
 | [docs/PORTABLE-ARCHITECTURE.md](docs/PORTABLE-ARCHITECTURE.md) | L1 switch contract + hybrid matrix |
 | [docs/VPN.md](docs/VPN.md) | City exits, peer reconcile, monitoring, honesty notes |
 | [docs/COST.md](docs/COST.md) | Idle billing |
@@ -104,5 +105,6 @@ docs/
 - Idle Azure VMs/AKS still bill — destroy when not demoing.
 - Home bare-metal VPN exit needs a public IP (or CGNAT workaround); default demo uses Azure public IPs.
 - Traffic Manager failover follows DNS TTL — not instant L4.
-- This is a learning / portfolio / self-host platform, not a commercial VPN product.
+- Built for **personal / self-host** use (your lab + your WireGuard peers) — not a commercial VPN product.
 - Billing, subscriptions, and multi-tenant SaaS features are out of scope — see [docs/ROADMAP.md](docs/ROADMAP.md).
+- Intended use & legality notes (not legal advice): [docs/LEGAL.md](docs/LEGAL.md).

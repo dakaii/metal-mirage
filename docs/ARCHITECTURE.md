@@ -113,7 +113,7 @@ See [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) for the output contract
 | Plane | Stack | Role |
 |-------|-------|------|
 | Platform | primary / standby / shared / gitops | Operate Kubernetes, ingress, failover, observability |
-| Consumer VPN | `infra/vpn-gateways` | Device traffic → NAT → internet |
+| Personal WireGuard | `infra/vpn-gateways` | Your device traffic → NAT → internet |
 
 VPN gateways:
 
@@ -170,7 +170,7 @@ infra/flux-bootstrap/    Flux Helm bootstrap
 gitops/                  Flux-managed manifests
 control-plane/           Clerk + Neon peer portal
 scripts/                 up / destroy / vpn / flux helpers
-docs/                    deploy, cost, VPN, portfolio talk track
+docs/                    deploy, cost, VPN, LEGAL, optional talk track
 ```
 
 ## Related docs
@@ -178,6 +178,7 @@ docs/                    deploy, cost, VPN, portfolio talk track
 - [DEPLOY.md](DEPLOY.md) — step-by-step bring-up
 - [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) — L1 switch contract
 - [VPN.md](VPN.md) — city exits and monitoring
+- [LEGAL.md](LEGAL.md) — personal/self-host intent + legality notes
 - [VELERO.md](VELERO.md) — backup storage notes
 - [COST.md](COST.md) — idle billing / teardown
-- [PORTFOLIO-DEMO.md](PORTFOLIO-DEMO.md) — talk track
+- [PORTFOLIO-DEMO.md](PORTFOLIO-DEMO.md) — optional talk track
