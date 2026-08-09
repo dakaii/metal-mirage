@@ -18,11 +18,11 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 
 ## Next (OSS hardening)
 
-- Contributor UX: secret-scan hygiene polish
 - Richer failover automation (scale standby / disable TM endpoint) beyond optional webhook
 
 ### Recently landed
 
+- Contributor UX: secret-scan hygiene — `.gitleaks.toml`, safer `.env.example` placeholders, `credentials-velero` gitignore, local `gitleaks` in CONTRIBUTING
 - Witness optional `failoverWebhookURL` — POST JSON once at threshold crossing (still no auto TM/scale)
 - Contributor UX: clearer script errors (`lib.sh` helpers), bare-metal dual-inventory docs, Go 1.26 prereqs
 - VPN observability: Helm scrape fragment + adminCidr caveat, Grafana dashboard polish, node_exporter disk/memory alerts (no WG exporter)

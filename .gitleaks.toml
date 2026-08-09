@@ -1,0 +1,18 @@
+# Repo-local gitleaks config (discovered automatically by gitleaks / gitleaks-action).
+# Keep allowlists narrow — prefer fixing example placeholders over broad path ignores.
+
+title = "metal-mirage"
+
+[extend]
+# Use default gitleaks rules, then layer allowlists below.
+useDefault = true
+
+[allowlist]
+description = "Documented placeholders and filler values that are not real secrets"
+paths = [
+  '''(?i).*\.example$''',
+]
+regexes = [
+  # Azure Linux VM config filler — Talos ignores this password field.
+  '''NotUsedByTalos123!''',
+]
