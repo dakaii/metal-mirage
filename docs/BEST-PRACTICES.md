@@ -29,6 +29,7 @@ Short, actionable checklist for operators and contributors. Scope is **self-host
 |----|-----|
 | Traffic Manager → **ingress** public IP, path `/healthz` on `:80` | Matches demo nginx + Azure LB → NodePort `30080` |
 | Do not point Traffic Manager at the Talos API PIP | API is not the app health surface |
+| Treat primary `AdminPassword` as Azure API filler | Talos never uses it; keep the constant for idempotent VM updates |
 | VPN: UDP `51820` from `*`; SSH/`9100` from `vpn:adminCidr` | Peers are remote; management plane is not |
 | AKS: workload identity + OIDC enabled; Velero identity has **Storage Blob Data Contributor** (`ba92a5b7-b7df-409c-b29b-3a3a5c1f4c5e`) | Correct built-in role GUID for blob backup |
 | Destroy stacks in dependency order (vpn → shared → flux → standby → primary) | Avoid dangling endpoints / failed destroys |

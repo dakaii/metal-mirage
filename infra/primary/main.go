@@ -412,6 +412,7 @@ func newTalosVM(
 		OsProfile: &compute.OSProfileArgs{
 			ComputerName:  pulumi.String(name),
 			AdminUsername: pulumi.String("talos"),
+			// Azure requires AdminPassword on Linux VMs; Talos ignores it (API-only OS).
 			AdminPassword: pulumi.String("NotUsedByTalos123!"),
 			CustomData:    customData,
 			LinuxConfiguration: &compute.LinuxConfigurationArgs{

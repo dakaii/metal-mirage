@@ -61,7 +61,7 @@ Provisioner switch lives in [`config/clusters.yaml`](../config/clusters.yaml). L
                               (separate RG / stack; not Traefik)
 ```
 
-Witness Function (when enabled) probes cluster readiness (`/readyz`-style checks via deploy scripts) so operators have an out-of-band signal beyond Traffic Manager’s HTTPS `/healthz` monitor.
+Witness Function (when enabled) probes cluster readiness (`/readyz`-style checks via deploy scripts) so operators have an out-of-band signal beyond Traffic Manager’s HTTP `/healthz` monitor.
 
 ## Stack choices
 
@@ -72,7 +72,7 @@ Witness Function (when enabled) probes cluster readiness (`/readyz`-style checks
 | Primary compute | Azure VMs + custom Talos gallery image | Bare-metal *simulation* without home public IP |
 | Standby | AKS | Managed DR target; Velero → Azure Blob |
 | GitOps | Flux (Helm chart `flux2` + in-repo kustomize) | Declarative apps/infra; primary vs standby patches |
-| Failover | Traffic Manager priority, TTL 30s, HTTPS `/healthz` | Simple DNS DR; not instant L4 |
+| Failover | Traffic Manager priority, TTL 30s, HTTP `/healthz` | Simple DNS DR; not instant L4 |
 | VPN | Ubuntu 22.04 + cloud-init WireGuard | Stock clients; city tag per stack |
 | Auth/DB (optional) | Clerk + Neon | Peer minting API without building IdP/DB |
 

@@ -134,6 +134,10 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 		key := args[1].(string)
 		return "DefaultEndpointsProtocol=https;AccountName=" + name + ";AccountKey=" + key + ";EndpointSuffix=core.windows.net"
 	}).(pulumi.StringOutput)
+	// ToSecret returns Output; re-wrap as StringOutput for AppSettings.
+	secretConn := pulumi.ToSecret(conn).ApplyT(func(v any) string {
+		return v.(string)
+	}).(pulumi.StringOutput)
 
 	app, err := web.NewWebApp(ctx, "witness-fn", &web.WebAppArgs{
 		ResourceGroupName: rg.Name,
@@ -146,7 +150,7 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 			AppSettings: web.NameValuePairArray{
 				&web.NameValuePairArgs{Name: pulumi.String("FUNCTIONS_EXTENSION_VERSION"), Value: pulumi.String("~4")},
 				&web.NameValuePairArgs{Name: pulumi.String("FUNCTIONS_WORKER_RUNTIME"), Value: pulumi.String("python")},
-				&web.NameValuePairArgs{Name: pulumi.String("AzureWebJobsStorage"), Value: conn},
+				&web.NameValuePairArgs{Name: pulumi.String("AzureWebJobsStorage"), Value: secretConn},
 				&web.NameValuePairArgs{Name: pulumi.String("PRIMARY_API_URL"), Value: pulumi.String(primaryAPI)},
 				&web.NameValuePairArgs{Name: pulumi.String("FAILURE_THRESHOLD"), Value: pulumi.String("3")},
 			},
