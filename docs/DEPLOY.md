@@ -77,6 +77,8 @@ GITOPS_REPO_URL=https://github.com/dakaii/metal-mirage ./scripts/install-flux.sh
 ./scripts/deploy-witness.sh
 ```
 
+After any later `./scripts/up.sh shared` (or `pulumi up` in `infra/shared`), re-run `./scripts/deploy-witness.sh` so the Function zip picks up dependency/code changes (for example `azure-storage-blob` and the durable failure counter). Pulumi alone does not redeploy the zip.
+
 ## 5. VPN city exit
 
 ```bash
