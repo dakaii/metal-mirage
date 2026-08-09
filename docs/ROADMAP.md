@@ -13,7 +13,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 | GitOps: Flux bootstrap path + demo app + monitoring scrape/alert hints | Kustomize-valid |
 | Docs: ARCHITECTURE, DEPLOY, VPN, COST, PORTABLE, CONFIG, BEST-PRACTICES, this ROADMAP | Honest portfolio/self-host framing |
 | Optional Phase 3 demo: Clerk + Neon peer registry in `control-plane/` | Minimal API only; clearly optional |
-| CI: Go build matrix + kustomize smoke; PRs into `main` ([CONTRIBUTING.md](../CONTRIBUTING.md)) | Keep green; no direct feature pushes |
+| CI: Go build/fmt/vet matrix + kustomize + shellcheck + actionlint + gitleaks; PRs into `main` ([CONTRIBUTING.md](../CONTRIBUTING.md)) | Keep green; no Azure secrets in CI |
 
 ## Next (OSS hardening)
 

@@ -121,8 +121,8 @@ func main() {
 		}
 
 		nic, err := network.NewNetworkInterface(ctx, "vpn-nic", &network.NetworkInterfaceArgs{
-			ResourceGroupName: rg.Name,
-			Location:          rg.Location,
+			ResourceGroupName:  rg.Name,
+			Location:           rg.Location,
 			EnableIPForwarding: pulumi.Bool(true),
 			NetworkSecurityGroup: &network.NetworkSecurityGroupTypeArgs{
 				Id: nsg.ID(),

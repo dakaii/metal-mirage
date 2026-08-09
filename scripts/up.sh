@@ -29,11 +29,22 @@ up_one() {
   )
 }
 
+stack_output() {
+  # Usage: stack_output <infra-dir> <output-name>
+  # Soft-fail: empty string if stack/output unavailable.
+  local dir="$1" name="$2"
+  (
+    cd "${ROOT}/${dir}" || exit 0
+    pulumi stack select "${STACK}" >/dev/null 2>&1 || exit 0
+    pulumi stack output "${name}" 2>/dev/null || exit 0
+  )
+}
+
 wire_shared_from_outputs() {
   local primary_ingress primary_api standby_fqdn
-  primary_ingress="$(cd "${ROOT}/infra/primary" && pulumi stack select "${STACK}" >/dev/null 2>&1 && pulumi stack output ingressIP 2>/dev/null || true)"
-  primary_api="$(cd "${ROOT}/infra/primary" && pulumi stack select "${STACK}" >/dev/null 2>&1 && pulumi stack output clusterEndpoint 2>/dev/null || true)"
-  standby_fqdn="$(cd "${ROOT}/infra/standby-aks" && pulumi stack select "${STACK}" >/dev/null 2>&1 && pulumi stack output aksFqdn 2>/dev/null || true)"
+  primary_ingress="$(stack_output infra/primary ingressIP)"
+  primary_api="$(stack_output infra/primary clusterEndpoint)"
+  standby_fqdn="$(stack_output infra/standby-aks aksFqdn)"
 
   if [[ -z "${primary_ingress}" ]]; then
     echo "warn: primary ingressIP not available; set shared:primaryIngressIP manually" >&2
