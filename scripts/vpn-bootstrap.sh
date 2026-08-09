@@ -4,34 +4,22 @@
 # Client configs land in vpn-clients/ (gitignored). Full-tunnel AllowedIPs.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib.sh
+source "${ROOT}/scripts/lib.sh"
 PEER="${1:-laptop}"
 OUT_DIR="${ROOT}/vpn-clients"
 STACK="${PULUMI_STACK:-dev}"
 mkdir -p "${OUT_DIR}"
 
-command -v wg >/dev/null || {
-  echo "missing wireguard tools (wg). On macOS: brew install wireguard-tools" >&2
-  exit 1
-}
-command -v pulumi >/dev/null || {
-  echo "missing pulumi" >&2
-  exit 1
-}
-command -v ssh >/dev/null || {
-  echo "missing ssh" >&2
-  exit 1
-}
+need wg "On macOS: brew install wireguard-tools"
+need pulumi "Install: https://www.pulumi.com/docs/install/"
+need ssh
 
+select_stack infra/vpn-gateways
+PUBLIC_IP="$(require_stack_output infra/vpn-gateways publicIP "run ./scripts/up.sh vpn first")"
+SSH_USER="$(require_stack_output infra/vpn-gateways sshUser "run ./scripts/up.sh vpn first")"
+CITY="$(require_stack_output infra/vpn-gateways city "run ./scripts/up.sh vpn first")"
 cd "${ROOT}/infra/vpn-gateways"
-pulumi stack select "${STACK}" >/dev/null
-PUBLIC_IP="$(pulumi stack output publicIP)"
-SSH_USER="$(pulumi stack output sshUser)"
-CITY="$(pulumi stack output city)"
-
-if [[ -z "${PUBLIC_IP}" || "${PUBLIC_IP}" == "null" ]]; then
-  echo "vpn stack has no publicIP — run ./scripts/up.sh vpn first" >&2
-  exit 1
-fi
 
 echo "==> Fetching server public key from ${SSH_USER}@${PUBLIC_IP}"
 # Wait briefly for cloud-init on fresh VMs.

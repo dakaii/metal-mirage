@@ -72,6 +72,18 @@ Secret outputs: `kubeconfig` (empty in dryRun), `machineConfigs`.
 | `standby:vmSize` | no | `Standard_B2s` |
 | `standby:kubernetesVersion` | no | (AKS default) |
 
+Prefer `./scripts/up.sh standby` with defaults; only set keys to override:
+
+```bash
+cd infra/standby-aks
+pulumi stack init dev   # or select
+# optional overrides:
+# pulumi config set standby:location eastus
+# pulumi config set standby:nodeCount 1
+cd ../..
+./scripts/up.sh standby
+```
+
 AKS enables OIDC + workload identity. Velero storage uses a user-assigned identity with Storage Blob Data Contributor on the backup account. Secret output: `kubeconfig`.
 
 ## `infra/shared` (namespace `shared`)

@@ -19,7 +19,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 ## Next (OSS hardening)
 
 - Deeper VPN observability (Prometheus scrape wiring, dashboard polish) — still single-tenant / self-host
-- Contributor UX: config examples, clearer failure messages in scripts, secret-scan hygiene
+- Contributor UX: secret-scan hygiene polish (script/error/config examples improved)
 - Automate witness hook (Event Grid / scale standby) beyond `FAILOVER_CANDIDATE` logs — still optional
 
 ### Recently landed

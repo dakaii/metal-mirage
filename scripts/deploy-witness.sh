@@ -2,28 +2,17 @@
 # Zip-deploy the witness Function App sources from infra/shared/witness.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib.sh
+source "${ROOT}/scripts/lib.sh"
 STACK="${PULUMI_STACK:-dev}"
 
-command -v az >/dev/null || {
-  echo "missing az CLI" >&2
-  exit 1
-}
-command -v zip >/dev/null || {
-  echo "missing zip" >&2
-  exit 1
-}
-command -v pulumi >/dev/null || {
-  echo "missing pulumi" >&2
-  exit 1
-}
+need az "Install Azure CLI: https://learn.microsoft.com/cli/azure/install-azure-cli"
+need zip
+need pulumi "Install: https://www.pulumi.com/docs/install/"
 
+select_stack infra/shared
+APP="$(require_stack_output infra/shared witnessFunctionName "enable shared:enableWitness (default) and ./scripts/up.sh shared")"
 cd "${ROOT}/infra/shared"
-pulumi stack select "${STACK}" >/dev/null
-
-if ! APP="$(pulumi stack output witnessFunctionName 2>/dev/null)"; then
-  echo "no witnessFunctionName output — enable shared:enableWitness (default) and ./scripts/up.sh shared" >&2
-  exit 1
-fi
 
 RG="$(az functionapp list --query "[?name=='${APP}'].resourceGroup | [0]" -o tsv)"
 if [[ -z "${RG}" || "${RG}" == "null" ]]; then
