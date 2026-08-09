@@ -5,15 +5,37 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dakaii/metal-mirage/control-plane/internal/auth"
 	"github.com/dakaii/metal-mirage/control-plane/internal/config"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/curve25519"
 )
+
+// WireGuard client pool for city exits (matches vpn-bootstrap / cloud-init).
+// .0/.1 reserved conceptually; usable hosts are 10.66.0.2 – 10.66.0.251.
+const (
+	peerIPPrefix   = "10.66.0."
+	peerIPMinOctet = 2
+	peerIPMaxOctet = 251
+	// Stable advisory-lock key so concurrent Create calls serialize IP picks.
+	peerIPAdvisoryLockKey int64 = 0x6d657461_6c6970 // "metalip"
+)
+
+// ErrPoolExhausted is returned when every address in 10.66.0.2–251 is taken.
+var ErrPoolExhausted = errors.New("peer IP pool exhausted (10.66.0.2–10.66.0.251)")
+
+// ErrDuplicateName is returned when (user_id, name) already exists.
+var ErrDuplicateName = errors.New("peer name already exists")
 
 type Peer struct {
 	ID          string    `json:"id"`
@@ -52,15 +74,41 @@ FROM peers WHERE user_id=$1 ORDER BY created_at DESC`, userID)
 	return out, rows.Err()
 }
 
-func (s *Store) Create(ctx context.Context, userID, name, pub, ip, city string) (Peer, error) {
+// Create inserts a peer, allocating the lowest free 10.66.0.x address inside a
+// transaction (advisory lock + UNIQUE(allocated_ip)) so concurrent creates and
+// post-DELETE holes cannot collide.
+func (s *Store) Create(ctx context.Context, userID, name, pub, city string) (Peer, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Peer{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, peerIPAdvisoryLockKey); err != nil {
+		return Peer{}, err
+	}
+	ip, err := nextIPTx(ctx, tx)
+	if err != nil {
+		return Peer{}, err
+	}
+
 	var p Peer
-	err := s.pool.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 INSERT INTO peers (user_id, name, public_key, allocated_ip, city)
 VALUES ($1,$2,$3,$4,$5)
 RETURNING id::text, user_id, name, public_key, allocated_ip, city, created_at`,
 		userID, name, pub, ip, city,
 	).Scan(&p.ID, &p.UserID, &p.Name, &p.PublicKey, &p.AllocatedIP, &p.City, &p.CreatedAt)
-	return p, err
+	if err != nil {
+		if isUniqueViolation(err) {
+			return Peer{}, ErrDuplicateName
+		}
+		return Peer{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Peer{}, err
+	}
+	return p, nil
 }
 
 func (s *Store) Delete(ctx context.Context, userID, id string) error {
@@ -77,14 +125,73 @@ FROM peers WHERE id=$1::uuid AND user_id=$2`, id, userID,
 	return p, err
 }
 
+// NextIP returns the lowest free address in the peer pool (read-only preview).
+// Prefer Create, which allocates under a lock.
 func (s *Store) NextIP(ctx context.Context) (string, error) {
-	var n int
-	err := s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM peers`).Scan(&n)
+	return nextIPTx(ctx, s.pool)
+}
+
+type ipQuerier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+func nextIPTx(ctx context.Context, q ipQuerier) (string, error) {
+	used, err := loadUsedOctets(ctx, q)
 	if err != nil {
 		return "", err
 	}
-	octet := 2 + (n % 250)
-	return fmt.Sprintf("10.66.0.%d", octet), nil
+	return nextFreeIP(used)
+}
+
+func loadUsedOctets(ctx context.Context, q ipQuerier) (map[int]struct{}, error) {
+	rows, err := q.Query(ctx, `SELECT allocated_ip FROM peers`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	used := make(map[int]struct{})
+	for rows.Next() {
+		var ip string
+		if err := rows.Scan(&ip); err != nil {
+			return nil, err
+		}
+		if o, ok := peerPoolOctet(ip); ok {
+			used[o] = struct{}{}
+		}
+	}
+	return used, rows.Err()
+}
+
+// nextFreeIP picks the lowest unused host in 10.66.0.2–10.66.0.251.
+func nextFreeIP(used map[int]struct{}) (string, error) {
+	for o := peerIPMinOctet; o <= peerIPMaxOctet; o++ {
+		if _, taken := used[o]; !taken {
+			return peerIPPrefix + strconv.Itoa(o), nil
+		}
+	}
+	return "", ErrPoolExhausted
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
+// peerPoolOctet returns the host octet if ip is in the 10.66.0.0/24 peer pool.
+func peerPoolOctet(ip string) (int, bool) {
+	parsed := net.ParseIP(strings.TrimSpace(ip))
+	if parsed == nil {
+		return 0, false
+	}
+	v4 := parsed.To4()
+	if v4 == nil || v4[0] != 10 || v4[1] != 66 || v4[2] != 0 {
+		return 0, false
+	}
+	o := int(v4[3])
+	if o < peerIPMinOctet || o > peerIPMaxOctet {
+		return 0, false
+	}
+	return o, true
 }
 
 type Handler struct {
@@ -119,26 +226,33 @@ type createResp struct {
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	uid := auth.UserID(r)
 	var req createReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
-		http.Error(w, "name required", 400)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "name required", http.StatusBadRequest)
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		http.Error(w, "name required", http.StatusBadRequest)
 		return
 	}
 	priv, pub, err := genWGKeypair()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	ip, err := h.store.NextIP(r.Context())
+	peer, err := h.store.Create(r.Context(), uid, req.Name, pub, h.cfg.VPNCity)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		switch {
+		case errors.Is(err, ErrPoolExhausted):
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		case errors.Is(err, ErrDuplicateName):
+			http.Error(w, err.Error(), http.StatusConflict)
+		default:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
-	peer, err := h.store.Create(r.Context(), uid, req.Name, pub, ip, h.cfg.VPNCity)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	cfg := renderClientConfig(priv, ip, h.cfg)
+	cfg := renderClientConfig(priv, peer.AllocatedIP, h.cfg)
 	writeJSON(w, createResp{Peer: peer, PrivateKey: priv, Config: cfg})
 }
 
