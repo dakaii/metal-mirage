@@ -71,6 +71,8 @@ PersistentKeepalive = 25
 EOF
 
 echo "==> Adding peer on server (${PEER_IP})"
+# Expand peer vars locally so the remote shell receives concrete values.
+# shellcheck disable=SC2029
 ssh "${SSH_USER}@${PUBLIC_IP}" \
   "sudo wg set wg0 peer ${PEER_PUB} allowed-ips ${PEER_IP}/32 && sudo wg-quick save wg0"
 

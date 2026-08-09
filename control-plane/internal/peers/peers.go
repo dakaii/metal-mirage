@@ -163,10 +163,10 @@ func (h *Handler) DownloadConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{
-		"peer": peer,
-		"note": "private key is only shown once at POST /api/peers",
+		"peer":              peer,
+		"note":              "private key is only shown once at POST /api/peers",
 		"server_public_key": h.cfg.VPNServerPubKey,
-		"endpoint": h.cfg.VPNEndpoint,
+		"endpoint":          h.cfg.VPNEndpoint,
 	})
 }
 

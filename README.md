@@ -74,7 +74,7 @@ pulumi login   # or pulumi login --local
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Full bring-up (Flux, witness, VPN peers) |
 | [docs/CONFIG.md](docs/CONFIG.md) | Pulumi / env config keys |
 | [docs/BEST-PRACTICES.md](docs/BEST-PRACTICES.md) | Operator security / GitOps / teardown checklist |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Branch from `main`, open a PR; CI must pass |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Branch from `main`, open a PR; CI check names |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Now / Next / Later + OSS commercial boundary |
 | [docs/PORTABLE-ARCHITECTURE.md](docs/PORTABLE-ARCHITECTURE.md) | L1 switch contract + hybrid matrix |
 | [docs/VPN.md](docs/VPN.md) | City exits, monitoring, honesty notes |

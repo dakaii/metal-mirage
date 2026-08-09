@@ -156,8 +156,8 @@ func main() {
 					IdleTimeoutInMinutes:    pulumi.Int(4),
 					LoadDistribution:        network.LoadDistributionDefault,
 					Probe:                   &network.SubResourceArgs{Id: probeID},
-					BackendAddressPool:  &network.SubResourceArgs{Id: backendID},
-					DisableOutboundSnat: pulumi.Bool(false), // SNAT for workers without public IPs
+					BackendAddressPool:      &network.SubResourceArgs{Id: backendID},
+					DisableOutboundSnat:     pulumi.Bool(false), // SNAT for workers without public IPs
 				},
 			},
 		})

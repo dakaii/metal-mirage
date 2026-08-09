@@ -58,7 +58,7 @@ Short, actionable checklist for operators and contributors. Scope is **self-host
 | Do | Why |
 |----|-----|
 | Keep each Pulumi program and `control-plane/` as its own module | Independent versioning |
-| CI matrix: `go mod tidy && go build ./...` per module + kustomize smoke | Catch breakages early |
+| CI: `go mod tidy` + `gofmt` + `go vet` + `go build` per module, kustomize, shellcheck, actionlint, gitleaks | PR QA without Azure credentials; see [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Prefer PRs into `main` (`feat/` / `fix/`); keep CI green | See [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Apache-2.0 (`LICENSE`) | Explicit OSS terms |
 | Ignore local Pulumi binaries (`infra/*/infra-*`) | Huge accidental commits |

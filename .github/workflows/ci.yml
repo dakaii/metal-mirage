@@ -3,6 +3,11 @@ on:
   push:
     branches: [main]
   pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   go-build:
     runs-on: ubuntu-latest
@@ -20,27 +25,61 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.x"
-      - name: tidy and build
+      - name: tidy, fmt, vet, build
         working-directory: ${{ matrix.dir }}
         run: |
           go mod tidy
+          if ! git diff --exit-code -- go.mod go.sum; then
+            echo "::error::go.mod/go.sum dirty after go mod tidy in ${{ matrix.dir }}"
+            exit 1
+          fi
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt needed:"
+            echo "$unformatted"
+            exit 1
+          fi
+          go vet ./...
           go build ./...
+
   kustomize:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: validate kustomize
         run: |
-          curl -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.3/kustomize_v5.4.3_linux_amd64.tar.gz" | tar xz
+          curl -fsSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.3/kustomize_v5.4.3_linux_amd64.tar.gz" | tar xz
           ./kustomize build gitops/apps >/dev/null
           ./kustomize build gitops/infrastructure >/dev/null
           ./kustomize build gitops/infrastructure/monitoring >/dev/null
           ./kustomize build gitops/clusters/primary >/dev/null
           ./kustomize build gitops/clusters/standby >/dev/null
+
   scripts:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: shellcheck-ish syntax
+      - name: shellcheck
         run: |
-          bash -n scripts/*.sh
+          # Pin a current release (Ubuntu apt shellcheck is older and noisier).
+          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz" | tar -xJ
+          ./shellcheck-v0.10.0/shellcheck scripts/*.sh
+
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: actionlint
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          ./actionlint -color
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

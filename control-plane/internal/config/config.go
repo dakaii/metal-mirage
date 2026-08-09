@@ -3,12 +3,12 @@ package config
 import "os"
 
 type Config struct {
-	Port           string
-	DatabaseURL    string
-	ClerkSecretKey string
-	VPNEndpoint    string // host:port for WireGuard endpoint in generated configs
+	Port            string
+	DatabaseURL     string
+	ClerkSecretKey  string
+	VPNEndpoint     string // host:port for WireGuard endpoint in generated configs
 	VPNServerPubKey string
-	VPNCity        string
+	VPNCity         string
 }
 
 func Load() Config {
