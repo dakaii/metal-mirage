@@ -105,6 +105,16 @@ Witness consecutive-failure state is stored in a private blob container (`witnes
 
 Traffic Manager monitor: HTTP `:80` path `/healthz` (demo nginx).
 
+Stable TM names (for `./scripts/failover-promote.sh`): profile / DNS relative name `metal-mirage-app`, endpoints `primary` / `standby`. Stack exports: `trafficManagerProfileName`, `trafficManagerPrimaryEndpoint`, `trafficManagerStandbyEndpoint`, `resourceGroupName`.
+
+After a `FAILOVER_CANDIDATE` (or for Drill A), operators warm standby with:
+
+```bash
+./scripts/failover-promote.sh
+# optional: ./scripts/failover-promote.sh --disable-primary-tm
+./scripts/failover-promote.sh --failback
+```
+
 ## `infra/vpn-gateways` (namespace `vpn`)
 
 | Key | Required | Default |
