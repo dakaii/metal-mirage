@@ -3,6 +3,11 @@
 #
 # Layers above L1 (Flux / demo / shared failover wiring) stay the same.
 # Offline demo: leave dryRun=true in the bare-metal Pulumi stack (default).
+#
+# IMPORTANT — two inventories:
+#   - `nodes:` here is for ./scripts/validate-inventory.sh only.
+#   - Live Pulumi still needs: pulumi -C infra/bare-metal config set baremetal:nodes '[...]'
+#     (see infra/bare-metal/Pulumi.yaml.example and docs/CONFIG.md / PORTABLE-ARCHITECTURE.md).
 
 primary:
   provisioner: bare-metal

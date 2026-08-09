@@ -11,12 +11,18 @@ Use `feat/` for new work and `fix/` for bugfixes. Small docs/chore branches (`ch
 
 ## Local checks (optional)
 
+Need **Go 1.26.x** (CI matrix / infra modules). After `go mod tidy`, `go.mod`/`go.sum` must stay clean or CI fails.
+
 ```bash
 # Go modules (same gates as CI matrix)
 for d in infra/*/ control-plane; do
   (
     cd "$d" || exit 1
     go mod tidy
+    git diff --exit-code -- go.mod go.sum || {
+      echo "go mod tidy dirty in $d — commit the result" >&2
+      exit 1
+    }
     unformatted="$(gofmt -l .)"
     if [ -n "$unformatted" ]; then
       echo "gofmt needed in $d:" >&2
@@ -29,6 +35,7 @@ done
 
 shellcheck -x scripts/*.sh   # -x follows sourced helpers (e.g. lib.sh)
 actionlint                   # if installed: brew install actionlint
+./scripts/validate-inventory.sh
 ```
 
 There is **no** `pulumi preview` in CI (needs Azure credentials). Run previews locally when changing stacks:

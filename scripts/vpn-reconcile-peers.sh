@@ -13,6 +13,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib.sh
+source "${ROOT}/scripts/lib.sh"
 STACK="${PULUMI_STACK:-dev}"
 DRY_RUN=0
 PRUNE=0
@@ -35,24 +37,12 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-command -v pulumi >/dev/null || {
-  echo "missing pulumi" >&2
-  exit 1
-}
-command -v ssh >/dev/null || {
-  echo "missing ssh" >&2
-  exit 1
-}
-command -v go >/dev/null || {
-  echo "missing go (needed for control-plane/cmd/listpeers)" >&2
-  exit 1
-}
+need pulumi "Install: https://www.pulumi.com/docs/install/"
+need ssh
+need go "Needed for control-plane/cmd/listpeers (Go 1.26.x)."
 
 if [[ -z "${DATABASE_URL:-}" && -f "${ROOT}/control-plane/.env" ]]; then
-  command -v python3 >/dev/null || {
-    echo "missing python3 (needed to load DATABASE_URL from control-plane/.env)" >&2
-    exit 1
-  }
+  need python3 "Needed to load DATABASE_URL from control-plane/.env"
   # Load DSN without `set -a; source` (ampersands in query params break that).
   DATABASE_URL="$(
     python3 - <<PY
@@ -71,19 +61,10 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
 fi
 export DATABASE_URL
 
-cd "${ROOT}/infra/vpn-gateways"
-if ! pulumi stack select "${STACK}" >/dev/null 2>&1; then
-  echo "pulumi stack '${STACK}' not found in infra/vpn-gateways — run ./scripts/up.sh vpn first (or set PULUMI_STACK)" >&2
-  exit 1
-fi
-PUBLIC_IP="$(pulumi stack output publicIP)"
-SSH_USER="$(pulumi stack output sshUser)"
-CITY="$(pulumi stack output city)"
-
-if [[ -z "${PUBLIC_IP}" || "${PUBLIC_IP}" == "null" ]]; then
-  echo "vpn stack has no publicIP — run ./scripts/up.sh vpn first" >&2
-  exit 1
-fi
+select_stack infra/vpn-gateways
+PUBLIC_IP="$(require_stack_output infra/vpn-gateways publicIP "run ./scripts/up.sh vpn first")"
+SSH_USER="$(require_stack_output infra/vpn-gateways sshUser "run ./scripts/up.sh vpn first")"
+CITY="$(require_stack_output infra/vpn-gateways city "run ./scripts/up.sh vpn first")"
 
 SSH=(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 "${SSH_USER}@${PUBLIC_IP}")
 

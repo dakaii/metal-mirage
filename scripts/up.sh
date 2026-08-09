@@ -8,15 +8,8 @@ source "${ROOT}/scripts/lib.sh"
 TARGET="${1:-primary}"
 STACK="${PULUMI_STACK:-dev}"
 
-need() {
-  command -v "$1" >/dev/null 2>&1 || {
-    echo "missing required tool: $1" >&2
-    exit 1
-  }
-}
-
-need pulumi
-need go
+need pulumi "Install: https://www.pulumi.com/docs/install/"
+need go "Need Go 1.26.x (matches CI / infra go.mod). See AGENTS.md."
 
 up_one() {
   local dir="$1"
@@ -48,9 +41,19 @@ wire_shared_from_outputs() {
   primary_api="$(stack_output "${pdir}" clusterEndpoint)"
   standby_fqdn="$(stack_output "${sdir}" aksFqdn)"
 
-  if [[ -z "${primary_ingress}" ]]; then
-    echo "warn: primary ingressIP not available; set shared:primaryIngressIP manually" >&2
-    return 0
+  if [[ -z "${primary_ingress}" || "${primary_ingress}" == "null" ]]; then
+    echo "error: primary ingressIP not available from ${pdir} (stack=${STACK})" >&2
+    echo "  Bring up primary first: ./scripts/up.sh primary" >&2
+    echo "  Or set manually: pulumi -C infra/shared config set shared:primaryIngressIP <ip>" >&2
+    exit 1
+  fi
+  if [[ -z "${primary_api}" || "${primary_api}" == "null" ]]; then
+    echo "warn: primary clusterEndpoint missing — witness primaryAPIURL will not be wired" >&2
+    echo "  Set later: pulumi -C infra/shared config set shared:primaryAPIURL 'https://<api-ip>:6443/readyz'" >&2
+  fi
+  if [[ -z "${standby_fqdn}" || "${standby_fqdn}" == "null" ]]; then
+    echo "warn: standby aksFqdn missing — Traffic Manager priority-2 endpoint will not be wired" >&2
+    echo "  Bring up standby first (./scripts/up.sh standby) or set shared:standbyFQDN manually" >&2
   fi
 
   echo "==> wiring shared stack from primary/standby outputs (${pdir})"
@@ -59,10 +62,10 @@ wire_shared_from_outputs() {
     pulumi stack select "${STACK}" 2>/dev/null || pulumi stack init "${STACK}"
     # Traffic Manager must target the ingress PIP (HTTP demo), not the Talos API PIP.
     pulumi config set shared:primaryIngressIP "${primary_ingress}"
-    if [[ -n "${primary_api}" ]]; then
+    if [[ -n "${primary_api}" && "${primary_api}" != "null" ]]; then
       pulumi config set shared:primaryAPIURL "${primary_api}/readyz"
     fi
-    if [[ -n "${standby_fqdn}" ]]; then
+    if [[ -n "${standby_fqdn}" && "${standby_fqdn}" != "null" ]]; then
       pulumi config set shared:standbyFQDN "${standby_fqdn}"
     fi
   )

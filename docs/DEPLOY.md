@@ -6,7 +6,7 @@ Config key reference: [CONFIG.md](CONFIG.md). Operator checklist: [BEST-PRACTICE
 
 - Azure CLI (`az login`) with a subscription
 - [Pulumi](https://www.pulumi.com/docs/install/) 3.x
-- Go 1.22+
+- Go 1.26.x (matches CI / `infra/*/go.mod`; see AGENTS.md)
 - `talosctl`, `kubectl`, `flux` (optional until GitOps step)
 - `wg` / WireGuard tools (for VPN peer scripts)
 - Domain optional (Traffic Manager gives `*.trafficmanager.net`)
@@ -49,7 +49,13 @@ To switch off Azure metal-sim without rewriting GitOps:
 # 1. Point inventory at hardware (see config/clusters.bare-metal.example.yaml)
 # 2. Offline contract check (no Azure / no nodes required):
 ./scripts/validate-inventory.sh
-# 3. Configure infra/bare-metal (dryRun=true by default) — docs/CONFIG.md + PORTABLE-ARCHITECTURE.md
+# 3. Also set Pulumi inventory (YAML nodes ≠ Pulumi config):
+cd infra/bare-metal && pulumi stack select dev  # or init
+pulumi config set baremetal:nodes '[{"role":"controlplane","ip":"192.168.1.10"},{"role":"worker","ip":"192.168.1.11"}]'
+pulumi config set baremetal:apiEndpointIP 192.168.1.10
+pulumi config set baremetal:dryRun true   # offline default
+cd ../..
+# 4. Bring up (dryRun generates secrets/configs only)
 ./scripts/up.sh primary
 ```
 

@@ -8,14 +8,7 @@ source "${ROOT}/scripts/lib.sh"
 TARGET="${1:-all}"
 STACK="${PULUMI_STACK:-dev}"
 
-need() {
-  command -v "$1" >/dev/null 2>&1 || {
-    echo "missing required tool: $1" >&2
-    exit 1
-  }
-}
-
-need pulumi
+need pulumi "Install: https://www.pulumi.com/docs/install/"
 
 destroy_one() {
   local dir="$1"
