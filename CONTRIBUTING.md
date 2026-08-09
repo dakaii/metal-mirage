@@ -35,6 +35,7 @@ done
 
 shellcheck -x scripts/*.sh   # -x follows sourced helpers (e.g. lib.sh)
 actionlint                   # if installed: brew install actionlint
+gitleaks detect --source .   # uses .gitleaks.toml; brew install gitleaks
 ./scripts/validate-inventory.sh
 ```
 

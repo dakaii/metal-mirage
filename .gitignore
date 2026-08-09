@@ -13,6 +13,9 @@ vpn-clients/
 *.key
 *.vhd
 *.vhd.xz
+# Velero Azure identity file from docs/VELERO.md
+credentials-velero
+**/credentials-velero
 
 # Go
 **/vendor/
@@ -28,6 +31,7 @@ control-plane/server
 # Env
 .env
 .env.*
+!**/.env.example
 !.env.example
 
 # Node (if any)

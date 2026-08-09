@@ -73,7 +73,9 @@ Short, actionable checklist for operators and contributors. Scope is **self-host
 
 | Do | Why |
 |----|-----|
-| Never commit kubeconfigs, talosconfigs, `.env`, `*.key`, `vpn-clients/` | Covered by `.gitignore` |
+| Never commit kubeconfigs, talosconfigs, `.env`, `*.key`, `vpn-clients/`, `credentials-velero` | Covered by `.gitignore` |
+| Keep example placeholders obviously fake (`REPLACE_ME_…`, docs-only IPs) | Avoid gitleaks false positives on `*.example` |
+| Run `gitleaks detect --source .` before PRs that touch secrets-shaped strings | Same scan as CI; config in `.gitleaks.toml` |
 | Default `adminCidr=0.0.0.0/0` is demo-only — set your `/32` before real use | SSH / Talos APIs / node_exporter |
 | No Stripe/billing keys in this repo | OSS boundary |
 | README cost + failover TTL honesty | Portfolio claims stay accurate |
