@@ -1,7 +1,10 @@
 package peers
 
 import (
+	"errors"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TestNextFreeIPEmptyPool(t *testing.T) {
@@ -48,8 +51,25 @@ func TestNextFreeIPExhausted(t *testing.T) {
 	for o := peerIPMinOctet; o <= peerIPMaxOctet; o++ {
 		used[o] = struct{}{}
 	}
-	if _, err := nextFreeIP(used); err == nil {
+	_, err := nextFreeIP(used)
+	if err == nil {
 		t.Fatal("expected exhaustion error")
+	}
+	if !errors.Is(err, ErrPoolExhausted) {
+		t.Fatalf("got %v, want ErrPoolExhausted", err)
+	}
+}
+
+func TestIsUniqueViolation(t *testing.T) {
+	t.Parallel()
+	if isUniqueViolation(errors.New("nope")) {
+		t.Fatal("plain error should not match")
+	}
+	if !isUniqueViolation(&pgconn.PgError{Code: "23505"}) {
+		t.Fatal("23505 should match")
+	}
+	if isUniqueViolation(&pgconn.PgError{Code: "23503"}) {
+		t.Fatal("other SQLSTATE should not match")
 	}
 }
 

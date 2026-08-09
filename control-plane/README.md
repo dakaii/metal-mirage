@@ -10,9 +10,12 @@
 - Store device peers in **Neon** Postgres
 - `POST /api/peers` mints a WireGuard keypair + client config JSON
 - Allocates `10.66.0.2`–`10.66.0.251` (lowest free; unique in DB; reuses holes after DELETE)
+- `POST /api/peers` returns **503** if the IP pool is exhausted, **409** if the device name already exists
 
 Pushing the peer public key to the VPN VM is still an operator step in V1
 (`wg set` / extend with a small reconciler later).
+
+**Honesty — DB vs WireGuard drift:** this API only writes to Postgres. `scripts/vpn-bootstrap.sh` allocates from live `wg show` on the VM. Until a reconciler lands, the two pools can disagree — treat them as separate paths, or push peer pubkeys manually after minting.
 
 ## Setup
 

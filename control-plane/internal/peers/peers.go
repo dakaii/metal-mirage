@@ -16,6 +16,7 @@ import (
 	"github.com/dakaii/metal-mirage/control-plane/internal/auth"
 	"github.com/dakaii/metal-mirage/control-plane/internal/config"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/curve25519"
 )
@@ -29,6 +30,12 @@ const (
 	// Stable advisory-lock key so concurrent Create calls serialize IP picks.
 	peerIPAdvisoryLockKey int64 = 0x6d657461_6c6970 // "metalip"
 )
+
+// ErrPoolExhausted is returned when every address in 10.66.0.2–251 is taken.
+var ErrPoolExhausted = errors.New("peer IP pool exhausted (10.66.0.2–10.66.0.251)")
+
+// ErrDuplicateName is returned when (user_id, name) already exists.
+var ErrDuplicateName = errors.New("peer name already exists")
 
 type Peer struct {
 	ID          string    `json:"id"`
@@ -93,6 +100,9 @@ RETURNING id::text, user_id, name, public_key, allocated_ip, city, created_at`,
 		userID, name, pub, ip, city,
 	).Scan(&p.ID, &p.UserID, &p.Name, &p.PublicKey, &p.AllocatedIP, &p.City, &p.CreatedAt)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return Peer{}, ErrDuplicateName
+		}
 		return Peer{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -159,7 +169,12 @@ func nextFreeIP(used map[int]struct{}) (string, error) {
 			return peerIPPrefix + strconv.Itoa(o), nil
 		}
 	}
-	return "", errors.New("peer IP pool exhausted (10.66.0.2–10.66.0.251)")
+	return "", ErrPoolExhausted
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 // peerPoolOctet returns the host octet if ip is in the 10.66.0.0/24 peer pool.
@@ -211,18 +226,30 @@ type createResp struct {
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	uid := auth.UserID(r)
 	var req createReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
-		http.Error(w, "name required", 400)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "name required", http.StatusBadRequest)
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		http.Error(w, "name required", http.StatusBadRequest)
 		return
 	}
 	priv, pub, err := genWGKeypair()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	peer, err := h.store.Create(r.Context(), uid, req.Name, pub, h.cfg.VPNCity)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		switch {
+		case errors.Is(err, ErrPoolExhausted):
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		case errors.Is(err, ErrDuplicateName):
+			http.Error(w, err.Error(), http.StatusConflict)
+		default:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 	cfg := renderClientConfig(priv, peer.AllocatedIP, h.cfg)
