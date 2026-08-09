@@ -14,11 +14,21 @@ Use `feat/` for new work and `fix/` for bugfixes. Small docs/chore branches (`ch
 ```bash
 # Go modules (same gates as CI matrix)
 for d in infra/*/ control-plane; do
-  (cd "$d" && go mod tidy && test -z "$(gofmt -l .)" && go vet ./... && go build ./...)
+  (
+    cd "$d" || exit 1
+    go mod tidy
+    unformatted="$(gofmt -l .)"
+    if [ -n "$unformatted" ]; then
+      echo "gofmt needed in $d:" >&2
+      echo "$unformatted" >&2
+      exit 1
+    fi
+    go vet ./... && go build ./...
+  )
 done
 
-shellcheck scripts/*.sh
-actionlint   # if installed: brew install actionlint
+shellcheck -x scripts/*.sh   # -x follows sourced helpers (e.g. lib.sh)
+actionlint                   # if installed: brew install actionlint
 ```
 
 There is **no** `pulumi preview` in CI (needs Azure credentials). Run previews locally when changing stacks:
