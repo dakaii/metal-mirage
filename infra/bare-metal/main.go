@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -36,7 +37,7 @@ func main() {
 			return fmt.Errorf("baremetal:ingressIP is required")
 		}
 
-		clusterEndpoint := fmt.Sprintf("https://%s:6443", apiEndpointIP)
+		clusterEndpoint := formatClusterEndpoint(apiEndpointIP)
 
 		diskPatch, err := json.Marshal(map[string]any{
 			"machine": map[string]any{
@@ -48,6 +49,7 @@ func main() {
 		if err != nil {
 			return err
 		}
+		diskPatches := pulumi.StringArray{pulumi.String(string(diskPatch))}
 
 		secrets, err := machine.NewSecrets(ctx, "talos-secrets", nil)
 		if err != nil {
@@ -62,7 +64,7 @@ func main() {
 
 		for i, n := range nodes {
 			name := fmt.Sprintf("%s-%d", n.Role, i)
-			ip := strings.TrimSpace(n.IP)
+			ip := n.IP
 			machineType := string(n.Role)
 			if n.Role == RoleControlPlane {
 				cpIPs = append(cpIPs, ip)
@@ -73,11 +75,13 @@ func main() {
 				workerIPs = append(workerIPs, ip)
 			}
 
+			// Bake install-disk patch into generated configs so dryRun exports match live apply.
 			mc := machine.GetConfigurationOutput(ctx, machine.GetConfigurationOutputArgs{
 				ClusterName:     pulumi.String(clusterName),
 				MachineType:     pulumi.String(machineType),
 				ClusterEndpoint: pulumi.String(clusterEndpoint),
 				MachineSecrets:  secrets.MachineSecrets,
+				ConfigPatches:   diskPatches,
 				Docs:            pulumi.Bool(false),
 				Examples:        pulumi.Bool(false),
 			})
@@ -91,7 +95,6 @@ func main() {
 				ClientConfiguration:       secrets.ClientConfiguration,
 				MachineConfigurationInput: mc.MachineConfiguration(),
 				Node:                      pulumi.String(ip),
-				ConfigPatches:             pulumi.StringArray{pulumi.String(string(diskPatch))},
 			})
 			if err != nil {
 				return err
@@ -153,6 +156,15 @@ func stringArray(vals []string) pulumi.StringArray {
 		out[i] = pulumi.String(v)
 	}
 	return out
+}
+
+// formatClusterEndpoint builds https://host:6443, bracketing IPv6 literals.
+func formatClusterEndpoint(apiIP string) string {
+	host := apiIP
+	if ip := net.ParseIP(apiIP); ip != nil && ip.To4() == nil {
+		host = "[" + apiIP + "]"
+	}
+	return "https://" + host + ":6443"
 }
 
 func cfgGet(cfg *config.Config, key, def string) string {

@@ -50,6 +50,27 @@ func TestParseNodesJSON(t *testing.T) {
 	}
 }
 
+func TestValidateNodesTrimsFields(t *testing.T) {
+	t.Parallel()
+	nodes := []Node{{Role: " controlplane ", IP: " 10.0.0.9 "}}
+	if err := ValidateNodes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	if nodes[0].Role != RoleControlPlane || nodes[0].IP != "10.0.0.9" {
+		t.Fatalf("expected trimmed fields, got %#v", nodes[0])
+	}
+}
+
+func TestFormatClusterEndpoint(t *testing.T) {
+	t.Parallel()
+	if got := formatClusterEndpoint("10.0.0.1"); got != "https://10.0.0.1:6443" {
+		t.Fatalf("ipv4: %q", got)
+	}
+	if got := formatClusterEndpoint("2001:db8::1"); got != "https://[2001:db8::1]:6443" {
+		t.Fatalf("ipv6: %q", got)
+	}
+}
+
 func TestLoadClustersFileDefault(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join("..", "..", "config", "clusters.yaml")

@@ -97,30 +97,33 @@ func ValidatePrimary(p PrimaryCluster) error {
 }
 
 // ValidateNodes checks role/IP inventory used by the bare-metal provisioner.
+// On success, roles and IPs are trimmed in place so callers can compare reliably.
 func ValidateNodes(nodes []Node) error {
 	if len(nodes) == 0 {
 		return fmt.Errorf("at least one node is required")
 	}
 	seen := map[string]struct{}{}
 	cp := 0
-	for i, n := range nodes {
-		role := NodeRole(strings.TrimSpace(string(n.Role)))
-		ip := strings.TrimSpace(n.IP)
+	for i := range nodes {
+		role := NodeRole(strings.TrimSpace(string(nodes[i].Role)))
+		ip := strings.TrimSpace(nodes[i].IP)
 		switch role {
 		case RoleControlPlane:
 			cp++
 		case RoleWorker:
 			// ok
 		default:
-			return fmt.Errorf("node[%d]: role %q invalid (want controlplane|worker)", i, n.Role)
+			return fmt.Errorf("node[%d]: role %q invalid (want controlplane|worker)", i, nodes[i].Role)
 		}
 		if net.ParseIP(ip) == nil {
-			return fmt.Errorf("node[%d]: ip %q is not a valid IP", i, n.IP)
+			return fmt.Errorf("node[%d]: ip %q is not a valid IP", i, nodes[i].IP)
 		}
 		if _, ok := seen[ip]; ok {
 			return fmt.Errorf("node[%d]: duplicate ip %s", i, ip)
 		}
 		seen[ip] = struct{}{}
+		nodes[i].Role = role
+		nodes[i].IP = ip
 	}
 	if cp == 0 {
 		return fmt.Errorf("at least one controlplane node is required")

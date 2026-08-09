@@ -14,10 +14,10 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 | Docs: ARCHITECTURE, DEPLOY, VPN, COST, PORTABLE, CONFIG, BEST-PRACTICES, this ROADMAP | Honest portfolio/self-host framing |
 | Optional Phase 3 demo: Clerk + Neon peer registry in `control-plane/` | Minimal API only; clearly optional |
 | CI: Go build/fmt/vet matrix (incl. `infra/bare-metal` + inventory tests) + kustomize + shellcheck + actionlint + gitleaks; PRs into `main` ([CONTRIBUTING.md](../CONTRIBUTING.md)) | Keep green; no Azure secrets in CI |
+| Portable L1 switch: `azure-metal-sim` → `infra/bare-metal` + inventory contract + dryRun offline demo | Done (live metal still needs hardware + `dryRun=false`) — [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) |
 
 ## Next (OSS hardening)
 
-- [x] Portable L1 switch: `azure-metal-sim` → `infra/bare-metal` with inventory contract + dryRun offline demo (live metal still needs hardware + `dryRun=false`) — [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md)
 - Operator runbooks: DR drill (Traffic Manager + witness), VPN peer lifecycle without a SaaS product
 - Deeper VPN observability (Prometheus scrape wiring, dashboard polish) — still single-tenant / self-host
 - Contributor UX: config examples, clearer failure messages in scripts, secret-scan hygiene

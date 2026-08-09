@@ -27,7 +27,7 @@ destroy_one() {
       return 0
     fi
     if ! pulumi destroy --yes; then
-      echo "error: destroy failed for ${dir} — fix Azure/Pulumi state before retrying" >&2
+      echo "error: destroy failed for ${dir} — fix cloud/Pulumi state before retrying" >&2
       return 1
     fi
   )
