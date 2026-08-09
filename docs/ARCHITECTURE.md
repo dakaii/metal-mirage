@@ -113,7 +113,7 @@ See [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) for the output contract
 | Plane | Stack | Role |
 |-------|-------|------|
 | Platform | primary / standby / shared / gitops | Operate Kubernetes, ingress, failover, observability |
-| Consumer VPN | `infra/vpn-gateways` | Device traffic → NAT → internet |
+| Personal WireGuard | `infra/vpn-gateways` | Your device traffic → NAT → internet |
 
 VPN gateways:
 

@@ -11,7 +11,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 | Pulumi Go stacks: `primary` (Talos metal-sim), `bare-metal` (thin L1), `standby-aks`, `shared` (Traffic Manager + witness), `vpn-gateways` | Ship / harden |
 | Scripts: `register-talos-image`, `up` / `destroy`, `validate-inventory`, `vpn-bootstrap`, `vpn-reconcile-peers`, `failover-promote`, `install-flux`, `deploy-witness` | Documented, runnable |
 | GitOps: Flux bootstrap path + demo app + monitoring scrape/alert hints | Kustomize-valid |
-| Docs: ARCHITECTURE, DEPLOY, VPN, COST, PORTABLE, CONFIG, BEST-PRACTICES, this ROADMAP | Honest portfolio/self-host framing |
+| Docs: ARCHITECTURE, DEPLOY, VPN, COST, PORTABLE, CONFIG, BEST-PRACTICES, LEGAL, this ROADMAP | Honest personal/self-host framing |
 | Optional Phase 3 demo: Clerk + Neon peer registry in `control-plane/` | Minimal API only; clearly optional |
 | CI: Go build/fmt/vet matrix (incl. `infra/bare-metal` + inventory tests) + kustomize + shellcheck + actionlint + gitleaks; PRs into `main` ([CONTRIBUTING.md](../CONTRIBUTING.md)) | Keep green; no Azure secrets in CI |
 | Portable L1 switch: `azure-metal-sim` → `infra/bare-metal` + inventory contract + dryRun offline demo | Done (live metal still needs hardware + `dryRun=false`) — [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) |
@@ -22,6 +22,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 
 ### Recently landed
 
+- Legality / intended-use note: [LEGAL.md](LEGAL.md) (personal self-host framing; not legal advice)
 - Failover promote helper: `./scripts/failover-promote.sh` (Flux-aware standby scale + optional TM primary disable/failback); stable TM resource names exported from `infra/shared`
 - Contributor UX: secret-scan hygiene — `.gitleaks.toml`, safer `.env.example` placeholders, `credentials-velero` gitignore, local `gitleaks` in CONTRIBUTING
 - Witness optional `failoverWebhookURL` — POST JSON once at threshold crossing (still no auto TM/scale inside the Function)
@@ -49,4 +50,4 @@ The optional Clerk + Neon peer API in OSS is a **demo**, not a billing surface. 
 | IaC, GitOps, witness, WireGuard city exits | Payments / subscriptions |
 | Self-host deploy docs + cost honesty | Multi-tenant product abuse stack |
 | Optional peer minting API (no billing) | App Store clients / proprietary branding |
-| Apache-2.0 portfolio platform | “Commercial VPN product” claims |
+| Apache-2.0 personal/self-host platform ([LEGAL.md](LEGAL.md)) | “Commercial VPN product” / geo-bypass marketing claims |
