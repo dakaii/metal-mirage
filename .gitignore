@@ -43,3 +43,7 @@ infra/bare-metal/infra-bare-metal
 infra/shared/infra-shared
 infra/standby-aks/infra-standby-aks
 infra/vpn-gateways/infra-vpn
+
+# Python
+__pycache__/
+*.py[cod]

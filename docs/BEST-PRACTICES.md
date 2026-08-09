@@ -18,10 +18,12 @@ Short, actionable checklist for operators and contributors. Scope is **self-host
 | Do | Why |
 |----|-----|
 | Treat `/dev/sda` as the default install disk (`primary:installDisk`) | Azure Gen2 Talos VHD usually maps OS disk here; real metal may differ |
-| Apply disk via machine `configPatches`, not hand-edited YAML in git | Reproducible bootstrap |
-| Bootstrap once on the first control-plane node; export kubeconfig as a secret | Pulumi `machine.Bootstrap` + `taloscluster.Kubeconfig` |
+| Bake install-disk into `GetConfiguration` `ConfigPatches` (customData == apply) | Reproducible first boot; matches bare-metal |
+| Bootstrap once on the first control-plane; kubeconfig `DependsOn` Bootstrap | Avoid racing etcd/API on first `pulumi up` |
+| Give metal-sim workers a public IP for `ConfigurationApply` | Operator laptop cannot reach private-only NICs |
 | Lock Talos APIs (`50000`/`50001`) and etcd to `primary:adminCidr` | Least privilege; HTTP/demo stay open for Traffic Manager |
 | Leave `:6443` open if using the witness Function | Function egress ≠ your adminCidr |
+| Persist witness failure counts in blob storage, not `/tmp` | Consumption Y1 has no sticky local disk |
 
 ## Azure networking & DR
 

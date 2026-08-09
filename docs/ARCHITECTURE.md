@@ -133,7 +133,7 @@ Multi-city = another stack/region with a `city` tag; clients switch profiles man
 - Monitor: HTTP `:80` path `/healthz`, 30s interval, 3 tolerated failures (metal-sim Azure LB → demo NodePort `30080`; no TLS required for portfolio DR).
 - DNS relative name `metal-mirage-app` → `*.trafficmanager.net` (custom domain optional via config).
 
-Optional witness Function App (Python 3.11, Consumption Y1) provides an additional readiness signal; wire it with `scripts/deploy-witness.sh` after `./scripts/up.sh shared`.
+Optional witness Function App (Python 3.11, Consumption Y1) provides an additional readiness signal; wire it with `scripts/deploy-witness.sh` after `./scripts/up.sh shared`. Consecutive probe failures are counted in a private blob (not `/tmp`) so the threshold survives cold starts.
 
 **Limits:** failover is DNS-TTL bound (profile TTL 30s plus resolver caches) — not stateful L4 cutover. Suitable for portfolio DR narrative, not zero-RTO production.
 
