@@ -46,9 +46,9 @@ jobs:
           fi
           go vet ./...
           go build ./...
-      - name: inventory contract tests
-        if: matrix.dir == 'infra/bare-metal'
-        working-directory: infra/bare-metal
+      - name: unit / contract tests
+        if: matrix.dir == 'infra/bare-metal' || matrix.dir == 'control-plane'
+        working-directory: ${{ matrix.dir }}
         run: go test ./...
 
   kustomize:
