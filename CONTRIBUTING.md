@@ -11,11 +11,17 @@ Use `feat/` for new work and `fix/` for bugfixes. Small docs/chore branches (`ch
 
 ## Branch protection (maintainers)
 
-Prefer GitHub **branch protection** (or a ruleset) on `main`:
+`main` uses GitHub **branch protection**: PRs required, and these **CI** status checks must pass (names must match exactly):
 
-1. Repo → **Settings** → **Branches** → **Add branch protection rule** (pattern `main`).
-2. Enable **Require a pull request before merging**.
-3. Enable **Require status checks to pass before merging** and select the checks from workflow **CI** (`go-build` matrix jobs, `kustomize`, `scripts`) once they have run at least once on a PR.
-4. Optionally leave **Do not allow bypassing the above settings** off so admins can hotfix in an emergency.
+- `go-build (infra/primary)`
+- `go-build (infra/standby-aks)`
+- `go-build (infra/shared)`
+- `go-build (infra/vpn-gateways)`
+- `go-build (infra/flux-bootstrap)`
+- `go-build (control-plane)`
+- `kustomize`
+- `scripts`
+
+To (re)configure: Repo → **Settings** → **Branches** → rule for `main` → require a pull request, then require the checks above (they appear after CI has run once on a PR). Optionally leave **Do not allow bypassing the above settings** off so admins can hotfix in an emergency.
 
 If the API or UI rejects protection (plan limits / missing permissions), keep this file as the source of truth and enforce the PR habit manually.
