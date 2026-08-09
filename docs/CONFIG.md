@@ -1,6 +1,8 @@
 # Pulumi / control-plane config keys
 
-Copy patterns below into a stack (`pulumi config set …`). Never commit real `Pulumi.*.yaml` secrets (gitignored).
+Copy patterns below into a stack (`pulumi config set …`). Never commit real `Pulumi.*.yaml` secrets (gitignored). See also [BEST-PRACTICES.md](BEST-PRACTICES.md).
+
+Use `--secret` for anything that grants cluster or cloud access (kubeconfig, tokens).
 
 ## `infra/primary` (namespace `primary`)
 
@@ -12,6 +14,8 @@ Copy patterns below into a stack (`pulumi config set …`). Never commit real `P
 | `primary:controlPlaneCount` | no | `1` | Demo-friendly |
 | `primary:workerCount` | no | `1` | |
 | `primary:vmSize` | no | `Standard_B2s` | |
+| `primary:installDisk` | no | `/dev/sda` | Talos `machine.install.disk` patch; Azure Gen2 metal-sim default |
+| `primary:adminCidr` | no | `0.0.0.0/0` | Source for Talos APIs + etcd; lock to your `/32` in real use |
 | `azure-native:location` | recommended | | Also set for the provider |
 
 Example:
@@ -21,9 +25,12 @@ cd infra/primary
 pulumi stack init dev
 pulumi config set azure-native:location eastus
 pulumi config set primary:talosImageId '/subscriptions/<sub>/resourceGroups/talos-images/providers/Microsoft.Compute/galleries/talosgallery/images/talos/versions/1.9.5'
+pulumi config set primary:adminCidr "$(curl -fsSL ifconfig.me)/32"
 pulumi config set primary:controlPlaneCount 1
 pulumi config set primary:workerCount 1
 ```
+
+Secret outputs: `kubeconfig` (use `--show-secrets` only locally into `.secrets/`).
 
 ## `infra/standby-aks` (namespace `standby`)
 
@@ -33,6 +40,8 @@ pulumi config set primary:workerCount 1
 | `standby:nodeCount` | no | `1` |
 | `standby:vmSize` | no | `Standard_B2s` |
 | `standby:kubernetesVersion` | no | (AKS default) |
+
+AKS enables OIDC + workload identity. Velero storage uses a user-assigned identity with Storage Blob Data Contributor on the backup account. Secret output: `kubeconfig`.
 
 ## `infra/shared` (namespace `shared`)
 
@@ -45,7 +54,9 @@ pulumi config set primary:workerCount 1
 | `shared:enableWitness` | no | `true` | Set `false` to skip Function App |
 | `shared:location` | no | `eastus` | |
 
-`./scripts/up.sh all` wires ingress IP / API URL / standby FQDN from stack outputs when present.
+`./scripts/up.sh shared` and `./scripts/up.sh all` wire ingress IP / API URL / standby FQDN from stack outputs when present.
+
+Traffic Manager monitor: HTTP `:80` path `/healthz` (demo nginx).
 
 ## `infra/vpn-gateways` (namespace `vpn`)
 
@@ -55,19 +66,26 @@ pulumi config set primary:workerCount 1
 | `vpn:location` | no | `eastus` |
 | `vpn:city` | no | `us` |
 | `vpn:vmSize` | no | `Standard_B1s` |
-| `vpn:adminCidr` | no | `0.0.0.0/0` (lock down in real use) |
+| `vpn:adminCidr` | no | `0.0.0.0/0` | SSH + node_exporter only; WireGuard UDP stays `*` |
+
+```bash
+pulumi config set vpn:sshPublicKey "$(cat ~/.ssh/id_ed25519.pub)"
+pulumi config set vpn:adminCidr "$(curl -fsSL ifconfig.me)/32"
+```
+
+Peer configs are written under `vpn-clients/` (gitignored).
 
 ## `infra/flux-bootstrap` (namespace `flux`)
 
 | Key | Required | Default |
 |-----|----------|---------|
-| `flux:kubeconfig` | yes (secret) | — |
+| `flux:kubeconfig` | yes (**secret**) | — | `pulumi config set --secret flux:kubeconfig "$(cat …)"` |
 | `flux:repoUrl` | no | `https://github.com/dakaii/metal-mirage` |
 | `flux:branch` | no | `main` |
-| `flux:clusterPath` | no | `./gitops/clusters/primary` |
+| `flux:clusterPath` | no | `./gitops/clusters/primary` | Documented next-step path |
 
 After controllers install, run `scripts/install-flux.sh` to create `GitRepository` + root `Kustomization`.
 
 ## `control-plane/` (optional Phase 3)
 
-See `.env.example`. No billing keys — Clerk secret + Neon `DATABASE_URL` + VPN endpoint/pubkey only.
+See `.env.example`. No billing keys — Clerk secret + Neon `DATABASE_URL` + VPN endpoint/pubkey only. Keep `.env` gitignored.

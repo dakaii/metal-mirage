@@ -74,12 +74,12 @@ func main() {
 			return err
 		}
 
-		// Storage Blob Data Contributor
+		// Storage Blob Data Contributor (well-known Azure built-in role GUID).
 		_, err = authorization.NewRoleAssignment(ctx, "velero-blob-data", &authorization.RoleAssignmentArgs{
 			PrincipalId:   identity.PrincipalId,
 			PrincipalType: authorization.PrincipalTypeServicePrincipal,
 			RoleDefinitionId: pulumi.Sprintf(
-				"/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/ba92a5b7-42e9-4cf0-8c5b-2c5c6b8f0c5d",
+				"/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/ba92a5b7-b7df-409c-b29b-3a3a5c1f4c5e",
 				clientCfg.SubscriptionId,
 			),
 			Scope: sa.ID(),

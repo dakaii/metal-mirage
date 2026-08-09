@@ -33,4 +33,14 @@ jobs:
         run: |
           curl -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.3/kustomize_v5.4.3_linux_amd64.tar.gz" | tar xz
           ./kustomize build gitops/apps >/dev/null
+          ./kustomize build gitops/infrastructure >/dev/null
           ./kustomize build gitops/infrastructure/monitoring >/dev/null
+          ./kustomize build gitops/clusters/primary >/dev/null
+          ./kustomize build gitops/clusters/standby >/dev/null
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck-ish syntax
+        run: |
+          bash -n scripts/*.sh

@@ -14,6 +14,22 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORKDIR="${ROOT}/.secrets/talos-image-${LOCATION}"
 mkdir -p "${WORKDIR}"
 
+need() {
+  command -v "$1" >/dev/null 2>&1 || {
+    echo "missing required tool: $1" >&2
+    exit 1
+  }
+}
+
+need az
+need curl
+need xz
+
+if ! az account show >/dev/null 2>&1; then
+  echo "az not logged in — run: az login" >&2
+  exit 1
+fi
+
 echo "==> Ensuring resource group ${RG} in ${LOCATION}"
 az group create --name "${RG}" --location "${LOCATION}" --output none
 
@@ -66,6 +82,7 @@ BLOB_URL="$(az storage blob url --account-name "${SA}" --container-name vhds --n
 if command -v azcopy >/dev/null 2>&1; then
   azcopy copy "${VHD}" "${BLOB_URL}" --blob-type PageBlob
 else
+  echo "azcopy not found; using az storage blob upload (slower)"
   az storage blob upload \
     --account-name "${SA}" \
     --container-name vhds \
@@ -99,3 +116,5 @@ echo "  ${IMAGE_ID}"
 echo ""
 echo "Configure primary stack:"
 echo "  cd infra/primary && pulumi config set primary:talosImageId '${IMAGE_ID}'"
+echo "Disk device default for metal-sim patches is /dev/sda (override with primary:installDisk)."
+echo "Note: gallery RG ${RG} is NOT destroyed by ./scripts/destroy.sh — delete manually when done."

@@ -11,6 +11,8 @@ talosconfig*
 vpn-clients/
 *.pem
 *.key
+*.vhd
+*.vhd.xz
 
 # Go
 **/vendor/

@@ -1,6 +1,6 @@
 # Deploy guide
 
-Config key reference: [CONFIG.md](CONFIG.md). Roadmap / OSS boundary: [ROADMAP.md](ROADMAP.md).
+Config key reference: [CONFIG.md](CONFIG.md). Operator checklist: [BEST-PRACTICES.md](BEST-PRACTICES.md). Roadmap / OSS boundary: [ROADMAP.md](ROADMAP.md).
 
 ## Prerequisites
 
@@ -19,6 +19,7 @@ cd infra/primary
 pulumi stack init dev
 pulumi config set azure-native:location eastus
 pulumi config set primary:talosImageId '/subscriptions/.../galleries/.../versions/...'
+pulumi config set primary:adminCidr "$(curl -fsSL ifconfig.me)/32"
 pulumi config set primary:controlPlaneCount 1
 pulumi config set primary:workerCount 1
 ```
@@ -45,7 +46,9 @@ pulumi stack init dev
 pulumi config set --secret flux:kubeconfig "$(cat ../../.secrets/primary.kubeconfig)"
 pulumi config set flux:repoUrl https://github.com/dakaii/metal-mirage
 pulumi up --yes
-# then create GitRepository + root kustomization:
+cd ../..
+# GitRepository + root Kustomization → gitops/clusters/primary:
+export KUBECONFIG=$PWD/.secrets/primary.kubeconfig
 GITOPS_REPO_URL=https://github.com/dakaii/metal-mirage ./scripts/install-flux.sh primary
 ```
 

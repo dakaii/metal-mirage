@@ -1,3 +1,6 @@
+# Optional — requires monitoring.coreos.com/v1 PrometheusRule CRD
+# (install kube-prometheus-stack first). Not included in the default
+# monitoring kustomization so Flux stays green without that stack.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:

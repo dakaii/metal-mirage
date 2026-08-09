@@ -1,39 +1,4 @@
-apiVersion: kustomize.toolkit.fluxcd.io/v1
+apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-metadata:
-  name: infrastructure
-  namespace: flux-system
-spec:
-  interval: 10m
-  path: ./gitops/infrastructure
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: metal-mirage
----
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
-  name: apps-standby
-  namespace: flux-system
-spec:
-  interval: 5m
-  path: ./gitops/apps
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: metal-mirage
-  # Cold standby: keep manifests, scale demo to zero until failover drill.
-  patches:
-    - patch: |-
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: demo
-          namespace: demo
-        spec:
-          replicas: 0
-      target:
-        kind: Deployment
-        name: demo
-        namespace: demo
+resources:
+  - flux.yaml

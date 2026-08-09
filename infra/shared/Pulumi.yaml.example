@@ -9,4 +9,4 @@ description: Traffic Manager failover + optional witness Function
 # Optional:
 #   pulumi config set shared:standbyFQDN '<aks fqdn>'
 #   pulumi config set shared:enableWitness false
-# Or let ./scripts/up.sh all wire outputs from primary/standby stacks.
+# Prefer: ./scripts/up.sh shared  (wires outputs from primary/standby)

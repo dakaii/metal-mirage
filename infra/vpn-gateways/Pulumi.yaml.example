@@ -4,7 +4,7 @@ runtime: go
 description: WireGuard city-exit VM (cloud-init)
 # Required:
 #   pulumi config set vpn:sshPublicKey "$(cat ~/.ssh/id_ed25519.pub)"
-# Recommended:
+# Recommended (SSH + node_exporter; WireGuard UDP remains open for peers):
 #   pulumi config set vpn:adminCidr "$(curl -fsSL ifconfig.me)/32"
 # Optional:
 #   pulumi config set vpn:city us

@@ -1,0 +1,40 @@
+# Hint only — PrometheusRule CRD comes from kube-prometheus-stack (or equivalent).
+# Do not apply the CR until that stack is installed, or Flux/kustomize will fail.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vpn-prometheus-rules-hint
+  namespace: monitoring
+data:
+  README: |
+    After installing kube-prometheus-stack (Helm), apply the sample rule:
+
+      kubectl apply -f gitops/infrastructure/monitoring/optional/prometheus-rules-vpn.yaml
+
+    Or copy the YAML into your Prometheus Operator values.
+  prometheus-rules-vpn.yaml: |
+    apiVersion: monitoring.coreos.com/v1
+    kind: PrometheusRule
+    metadata:
+      name: vpn-gateway
+      namespace: monitoring
+      labels:
+        release: kube-prometheus-stack
+    spec:
+      groups:
+        - name: vpn-gateway
+          rules:
+            - alert: VPNGatewayDown
+              expr: up{job="vpn-gateway"} == 0
+              for: 5m
+              labels:
+                severity: critical
+              annotations:
+                summary: VPN gateway {{ $labels.city }} is down
+            - alert: WireGuardPeerHandshakeStale
+              expr: time() - wireguard_peer_last_handshake_seconds > 300
+              for: 10m
+              labels:
+                severity: warning
+              annotations:
+                summary: WireGuard peer handshake stale on {{ $labels.city }}

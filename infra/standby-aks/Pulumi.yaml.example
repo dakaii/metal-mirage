@@ -1,0 +1,10 @@
+# Example only — see docs/CONFIG.md
+name: metal-mirage-standby
+runtime: go
+description: AKS standby cluster + Velero blob storage identity
+# Optional:
+#   pulumi config set standby:location eastus
+#   pulumi config set standby:nodeCount 1
+#   pulumi config set standby:vmSize Standard_B2s
+#   pulumi config set standby:kubernetesVersion 1.29
+# Workload identity + OIDC are enabled in code. kubeconfig is a secret stack output.

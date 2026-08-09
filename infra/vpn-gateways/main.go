@@ -64,6 +64,7 @@ func main() {
 			return err
 		}
 
+		// WireGuard peers connect from anywhere; lock SSH/metrics to adminCidr.
 		nsg, err := network.NewNetworkSecurityGroup(ctx, "vpn-nsg", &network.NetworkSecurityGroupArgs{
 			ResourceGroupName: rg.Name,
 			Location:          rg.Location,
@@ -74,7 +75,7 @@ func main() {
 					Direction:                network.SecurityRuleDirectionInbound,
 					Access:                   network.SecurityRuleAccessAllow,
 					Protocol:                 network.SecurityRuleProtocolUdp,
-					SourceAddressPrefix:      pulumi.String(adminCIDR),
+					SourceAddressPrefix:      pulumi.String("*"),
 					SourcePortRange:          pulumi.String("*"),
 					DestinationAddressPrefix: pulumi.String("*"),
 					DestinationPortRange:     pulumi.String("51820"),
@@ -212,7 +213,7 @@ func main() {
 }
 
 func cloudInitScript(city string) string {
-	// Keep Ansible out: cloud-init only.
+	// Keep Ansible out: cloud-init only. Idempotent key + interface setup.
 	lines := []string{
 		"#cloud-config",
 		"package_update: true",
@@ -233,23 +234,39 @@ func cloudInitScript(city string) string {
 		"      set -euo pipefail",
 		"      CITY=" + city,
 		"      mkdir -p /etc/wireguard /var/lib/wireguard",
+		"      umask 077",
 		"      if [[ ! -f /etc/wireguard/server.key ]]; then",
-		"        umask 077",
 		"        wg genkey | tee /etc/wireguard/server.key | wg pubkey > /etc/wireguard/server.pub",
 		"      fi",
+		"      chmod 600 /etc/wireguard/server.key",
 		"      PRIV=$(cat /etc/wireguard/server.key)",
+		"      # Azure Ubuntu usually eth0; fall back to default-route iface.",
+		"      IFACE=$(ip -4 route show default 2>/dev/null | awk '{print $5; exit}')",
+		"      IFACE=${IFACE:-eth0}",
+		"      # Rewrite interface block only; preserve [Peer] sections added by vpn-bootstrap.",
+		"      if [[ -f /etc/wireguard/wg0.conf ]]; then",
+		"        awk 'BEGIN{p=0} /^\\[Peer\\]/{p=1} p{print}' /etc/wireguard/wg0.conf > /etc/wireguard/wg0.peers || true",
+		"      else",
+		"        : > /etc/wireguard/wg0.peers",
+		"      fi",
 		"      cat > /etc/wireguard/wg0.conf <<EOF",
 		"      [Interface]",
 		"      Address = 10.66.0.1/24",
 		"      ListenPort = 51820",
 		"      PrivateKey = ${PRIV}",
-		"      PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE",
-		"      PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE",
+		"      PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o ${IFACE} -j MASQUERADE",
+		"      PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o ${IFACE} -j MASQUERADE",
 		"      EOF",
-		"      # strip leading spaces from heredoc lines written via cloud-init",
 		"      sed -i 's/^[[:space:]]*//' /etc/wireguard/wg0.conf",
-		"      systemctl enable --now wg-quick@wg0",
-		"      systemctl enable --now prometheus-node-exporter",
+		"      if [[ -s /etc/wireguard/wg0.peers ]]; then",
+		"        printf '\\n' >> /etc/wireguard/wg0.conf",
+		"        cat /etc/wireguard/wg0.peers >> /etc/wireguard/wg0.conf",
+		"      fi",
+		"      rm -f /etc/wireguard/wg0.peers",
+		"      systemctl enable prometheus-node-exporter",
+		"      systemctl restart prometheus-node-exporter || systemctl start prometheus-node-exporter",
+		"      systemctl enable wg-quick@wg0",
+		"      systemctl restart wg-quick@wg0 || systemctl start wg-quick@wg0",
 		"runcmd:",
 		"  - sysctl --system",
 		"  - /usr/local/bin/wg-bootstrap.sh",

@@ -92,7 +92,8 @@ VPN still uses cloud-init on Ubuntu because WireGuard city exits are ordinary Li
 
 - Register a Talos Azure image once (`scripts/register-talos-image.sh`).
 - `infra/primary` creates VNet/NSG, static API + ingress public IPs, control-plane/worker VMs (`Standard_B2s` by default), applies Talos config, bootstraps the cluster.
-- Exports follow the portable contract: `kubeconfig`, `apiLoadBalancerIP` / ingress IP, `clusterEndpoint`, `provisioner`.
+- Machine config patch sets `machine.install.disk` (default `/dev/sda` for Azure Gen2 metal-sim; override with `primary:installDisk`).
+- Exports follow the portable contract: `kubeconfig` (secret), `apiLoadBalancerIP` / ingress IP, `clusterEndpoint`, `provisioner`.
 
 **Later (`provisioner: bare-metal`):**
 
@@ -116,7 +117,7 @@ VPN gateways:
 
 - Own resource group and VNet (`10.66.0.0/16`).
 - cloud-init installs WireGuard; `scripts/vpn-bootstrap.sh` mints peer configs.
-- NSG allows UDP 51820 (and SSH / node-exporter from `adminCidr`).
+- NSG allows UDP 51820 from anywhere (peers); SSH / node-exporter from `adminCidr` only.
 - Not fronted by Traefik; clients use official WireGuard apps only.
 
 Multi-city = another stack/region with a `city` tag; clients switch profiles manually (no auto peer failover in V1). Details: [VPN.md](VPN.md).
@@ -139,9 +140,11 @@ Optional witness Function App (Python 3.11, Consumption Y1) provides an addition
 1. Export primary kubeconfig from Pulumi secrets.
 2. `infra/flux-bootstrap` installs Flux controllers via Helm into `flux-system`.
 3. `scripts/install-flux.sh` (or manual apply) creates GitRepository + root Kustomization pointing at `gitops/clusters/<primary|standby>`.
-4. Cluster overlays pull `gitops/apps` (demo Deployment/Service/Ingress) and `gitops/infrastructure` (monitoring hints, VPN Prometheus rules / Grafana dashboard ConfigMap).
+4. Cluster overlays (`gitops/clusters/<name>/kustomization.yaml` → `flux.yaml`) pull `gitops/apps` (demo Deployment/Service/Ingress) and `gitops/infrastructure` (monitoring hints + Grafana dashboard ConfigMap).
 
-Standby overlays can keep demo replicas at 0 until failover — keep cost and blast radius low during idle demos.
+PrometheusRule samples live under `gitops/infrastructure/monitoring/optional/` — apply only after kube-prometheus-stack (CRD) is installed. Default Flux path ships ConfigMap hints so reconcile stays green without that stack.
+
+Standby overlays keep demo replicas at 0 until failover — keep cost and blast radius low during idle demos.
 
 ## Clerk + Neon (Phase 3)
 

@@ -11,7 +11,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 | Pulumi Go stacks: `primary` (Talos metal-sim), `standby-aks`, `shared` (Traffic Manager + witness), `vpn-gateways` | Ship / harden |
 | Scripts: `register-talos-image`, `up` / `destroy`, `vpn-bootstrap`, `install-flux`, `deploy-witness` | Documented, runnable |
 | GitOps: Flux bootstrap path + demo app + monitoring scrape/alert hints | Kustomize-valid |
-| Docs: ARCHITECTURE, DEPLOY, VPN, COST, PORTABLE, CONFIG, this ROADMAP | Honest portfolio/self-host framing |
+| Docs: ARCHITECTURE, DEPLOY, VPN, COST, PORTABLE, CONFIG, BEST-PRACTICES, this ROADMAP | Honest portfolio/self-host framing |
 | Optional Phase 3 demo: Clerk + Neon peer registry in `control-plane/` | Minimal API only; clearly optional |
 | CI: Go build matrix + kustomize smoke | Keep green |
 

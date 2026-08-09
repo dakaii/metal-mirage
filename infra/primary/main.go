@@ -32,6 +32,10 @@ func main() {
 		cpCount := cfgGetInt(cfg, "controlPlaneCount", 1)
 		workerCount := cfgGetInt(cfg, "workerCount", 1)
 		vmSize := cfgGet(cfg, "vmSize", "Standard_B2s")
+		// Azure Gen2 Talos VHD typically presents the OS disk as /dev/sda.
+		installDisk := cfgGet(cfg, "installDisk", "/dev/sda")
+		// Lock Talos/k8s API planes; leave HTTP/demo open for Traffic Manager probes.
+		adminCIDR := cfgGet(cfg, "adminCidr", "0.0.0.0/0")
 
 		clientCfg, err := authorization.GetClientConfig(ctx)
 		if err != nil {
@@ -69,13 +73,15 @@ func main() {
 			ResourceGroupName: rg.Name,
 			Location:          rg.Location,
 			SecurityRules: network.SecurityRuleTypeArray{
-				tcpAllow("allow-talos-apid", 1001, "50000"),
-				tcpAllow("allow-talos-trustd", 1002, "50001"),
-				tcpAllow("allow-etcd", 1003, "2379-2380"),
-				tcpAllow("allow-k8s-api", 1004, "6443"),
-				tcpAllow("allow-https", 1005, "443"),
-				tcpAllow("allow-http", 1006, "80"),
-				tcpAllow("allow-demo-nodeport", 1007, fmt.Sprintf("%d", demoNodePort)),
+				tcpAllow("allow-talos-apid", 1001, "50000", adminCIDR),
+				tcpAllow("allow-talos-trustd", 1002, "50001", adminCIDR),
+				tcpAllow("allow-etcd", 1003, "2379-2380", adminCIDR),
+				// 6443 stays open so the shared witness Function can probe /readyz
+				// (Azure Functions egress is not your adminCidr). Lock further if unused.
+				tcpAllow("allow-k8s-api", 1004, "6443", "*"),
+				tcpAllow("allow-https", 1005, "443", "*"),
+				tcpAllow("allow-http", 1006, "80", "*"),
+				tcpAllow("allow-demo-nodeport", 1007, fmt.Sprintf("%d", demoNodePort), "*"),
 			},
 		})
 		if err != nil {
@@ -171,7 +177,7 @@ func main() {
 		diskPatch, err := json.Marshal(map[string]any{
 			"machine": map[string]any{
 				"install": map[string]any{
-					"disk": "/dev/sda",
+					"disk": installDisk,
 				},
 			},
 		})
@@ -343,6 +349,7 @@ func main() {
 		ctx.Export("ingressIP", ingressPip.IpAddress)
 		ctx.Export("ingressLoadBalancer", ingressLB.Name)
 		ctx.Export("demoNodePort", pulumi.Int(demoNodePort))
+		ctx.Export("installDisk", pulumi.String(installDisk))
 		ctx.Export("controlPlanePublicIPs", pulumi.StringArray(cpIPsToArray(cpIPs)))
 		ctx.Export("clusterEndpoint", clusterEndpoint)
 		ctx.Export("kubeconfig", pulumi.ToSecret(kubeconfig.KubeconfigRaw))
@@ -414,14 +421,14 @@ func newTalosVM(
 	})
 }
 
-func tcpAllow(name string, priority int, port string) *network.SecurityRuleTypeArgs {
+func tcpAllow(name string, priority int, port, sourceCIDR string) *network.SecurityRuleTypeArgs {
 	return &network.SecurityRuleTypeArgs{
 		Name:                     pulumi.String(name),
 		Priority:                 pulumi.Int(priority),
 		Direction:                network.SecurityRuleDirectionInbound,
 		Access:                   network.SecurityRuleAccessAllow,
 		Protocol:                 network.SecurityRuleProtocolTcp,
-		SourceAddressPrefix:      pulumi.String("*"),
+		SourceAddressPrefix:      pulumi.String(sourceCIDR),
 		SourcePortRange:          pulumi.String("*"),
 		DestinationAddressPrefix: pulumi.String("*"),
 		DestinationPortRange:     pulumi.String(port),

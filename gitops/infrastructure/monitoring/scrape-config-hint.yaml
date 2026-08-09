@@ -9,3 +9,5 @@ data:
     Run ./scripts/vpn-prometheus-scrape-snippet.sh after the vpn stack is up,
     then add the YAML to kube-prometheus-stack additionalScrapeConfigs.
     Install kube-prometheus-stack separately (Helm) if not already present.
+    PrometheusRule samples: monitoring/optional/prometheus-rules-vpn.yaml
+    (requires monitoring.coreos.com CRDs — not applied by default Flux path).
