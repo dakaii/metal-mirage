@@ -30,12 +30,18 @@ func main() {
 			return err
 		}
 
+		// Stable Azure names so ./scripts/failover-promote.sh can toggle endpoints without guessing.
+		const tmProfileName = "metal-mirage-app"
+		const tmPrimaryEndpoint = "primary"
+		const tmStandbyEndpoint = "standby"
+
 		profile, err := network.NewProfile(ctx, "app-failover", &network.ProfileArgs{
+			Name:                        pulumi.String(tmProfileName),
 			ResourceGroupName:           rg.Name,
 			TrafficRoutingMethod:        network.TrafficRoutingMethodPriority,
 			TrafficViewEnrollmentStatus: network.TrafficViewEnrollmentStatusDisabled,
 			DnsConfig: &network.DnsConfigArgs{
-				RelativeName: pulumi.String("metal-mirage-app"),
+				RelativeName: pulumi.String(tmProfileName),
 				Ttl:          pulumi.Float64(30),
 			},
 			// HTTP:80 matches metal-sim Azure LB → demo NodePort (no TLS required for portfolio DR).
@@ -53,6 +59,7 @@ func main() {
 		}
 
 		_, err = network.NewEndpoint(ctx, "primary-endpoint", &network.EndpointArgs{
+			Name:              pulumi.String(tmPrimaryEndpoint),
 			ResourceGroupName: rg.Name,
 			ProfileName:       profile.Name.Elem(),
 			EndpointType:      pulumi.String("ExternalEndpoints"),
@@ -66,6 +73,7 @@ func main() {
 
 		if standbyFQDN != "" {
 			_, err = network.NewEndpoint(ctx, "standby-endpoint", &network.EndpointArgs{
+				Name:              pulumi.String(tmStandbyEndpoint),
 				ResourceGroupName: rg.Name,
 				ProfileName:       profile.Name.Elem(),
 				EndpointType:      pulumi.String("ExternalEndpoints"),
@@ -84,6 +92,9 @@ func main() {
 			}
 			return *d.RelativeName + ".trafficmanager.net"
 		}).(pulumi.StringOutput))
+		ctx.Export("trafficManagerProfileName", pulumi.String(tmProfileName))
+		ctx.Export("trafficManagerPrimaryEndpoint", pulumi.String(tmPrimaryEndpoint))
+		ctx.Export("trafficManagerStandbyEndpoint", pulumi.String(tmStandbyEndpoint))
 		ctx.Export("appDomainHint", pulumi.String(appDomain))
 		ctx.Export("resourceGroupName", rg.Name)
 

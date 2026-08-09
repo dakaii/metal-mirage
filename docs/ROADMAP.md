@@ -9,7 +9,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 | Area | Status intent |
 |------|----------------|
 | Pulumi Go stacks: `primary` (Talos metal-sim), `bare-metal` (thin L1), `standby-aks`, `shared` (Traffic Manager + witness), `vpn-gateways` | Ship / harden |
-| Scripts: `register-talos-image`, `up` / `destroy`, `validate-inventory`, `vpn-bootstrap`, `vpn-reconcile-peers`, `install-flux`, `deploy-witness` | Documented, runnable |
+| Scripts: `register-talos-image`, `up` / `destroy`, `validate-inventory`, `vpn-bootstrap`, `vpn-reconcile-peers`, `failover-promote`, `install-flux`, `deploy-witness` | Documented, runnable |
 | GitOps: Flux bootstrap path + demo app + monitoring scrape/alert hints | Kustomize-valid |
 | Docs: ARCHITECTURE, DEPLOY, VPN, COST, PORTABLE, CONFIG, BEST-PRACTICES, this ROADMAP | Honest portfolio/self-host framing |
 | Optional Phase 3 demo: Clerk + Neon peer registry in `control-plane/` | Minimal API only; clearly optional |
@@ -18,12 +18,13 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 
 ## Next (OSS hardening)
 
-- Richer failover automation (scale standby / disable TM endpoint) beyond optional webhook
+- Live Azure bring-up validation of the full DR path (needs Azure creds in the operator environment)
 
 ### Recently landed
 
+- Failover promote helper: `./scripts/failover-promote.sh` (Flux-aware standby scale + optional TM primary disable/failback); stable TM resource names exported from `infra/shared`
 - Contributor UX: secret-scan hygiene — `.gitleaks.toml`, safer `.env.example` placeholders, `credentials-velero` gitignore, local `gitleaks` in CONTRIBUTING
-- Witness optional `failoverWebhookURL` — POST JSON once at threshold crossing (still no auto TM/scale)
+- Witness optional `failoverWebhookURL` — POST JSON once at threshold crossing (still no auto TM/scale inside the Function)
 - Contributor UX: clearer script errors (`lib.sh` helpers), bare-metal dual-inventory docs, Go 1.26 prereqs
 - VPN observability: Helm scrape fragment + adminCidr caveat, Grafana dashboard polish, node_exporter disk/memory alerts (no WG exporter)
 - DR drill runbook: [DR.md](DR.md) (Traffic Manager `:80/healthz` vs witness `:6443/readyz`)

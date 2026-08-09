@@ -9,4 +9,6 @@ description: Traffic Manager failover + optional witness Function
 # Optional:
 #   pulumi config set shared:standbyFQDN '<aks fqdn>'
 #   pulumi config set shared:enableWitness false
+#   pulumi config set --secret shared:failoverWebhookURL 'https://…'  # optional; pair with ./scripts/failover-promote.sh
 # Prefer: ./scripts/up.sh shared  (wires outputs from primary/standby)
+# TM Azure names: profile metal-mirage-app, endpoints primary / standby
