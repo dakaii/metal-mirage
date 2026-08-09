@@ -12,9 +12,6 @@
 - Allocates `10.66.0.2`–`10.66.0.251` (lowest free; unique in DB; reuses holes after DELETE)
 - `POST /api/peers` returns **503** if the IP pool is exhausted, **409** if the device name already exists
 
-Pushing the peer public key to the VPN VM is still an operator step in V1
-(`wg set` / extend with a small reconciler later).
-
 **Honesty — DB vs WireGuard drift:** this API only writes to Postgres. `scripts/vpn-bootstrap.sh` allocates from live `wg show` on the VM. After `POST /api/peers`, push DB peers onto the city VM with:
 
 ```bash

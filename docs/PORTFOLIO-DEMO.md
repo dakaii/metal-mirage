@@ -17,7 +17,7 @@ Bring the stack up the night before. Do **not** run full `./scripts/up.sh all` l
 
 ```bash
 kubectl get nodes
-kubectl -n demo get deploy,svc,ingress
+kubectl -n demo get deploy,svc
 flux get kustomizations
 wg show   # on VPN VM via ssh
 ```

@@ -24,6 +24,4 @@ shared:
 
 vpn:
   pulumi_dir: infra/vpn-gateways
-  cities:
-    us:
-      location: eastus
+  # City/region: Pulumi vpn:city / vpn:location (not read from this file).

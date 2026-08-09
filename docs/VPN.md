@@ -1,14 +1,14 @@
 # Consumer VPN
 
 Full-tunnel WireGuard exit on a dedicated Azure VM (cloud-init — **no Ansible**).
-Stock WireGuard clients only. Not on the Traefik/HTTP path.
+Stock WireGuard clients only. Not on the HTTP/demo path (Azure LB → NodePort).
 
 ## Product vs platform
 
 | Plane | Role |
 |-------|------|
 | WireGuard gateway | Device traffic → NAT → internet |
-| Talos + Flux + Traefik | Operate/monitor the platform |
+| Talos + Flux + demo LB | Operate/monitor the platform (portfolio path: Azure LB → NodePort `30080`, no Traefik) |
 
 ## Deploy
 
