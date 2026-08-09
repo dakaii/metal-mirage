@@ -9,6 +9,7 @@
 - Authenticate users with **Clerk** (Bearer session JWT)
 - Store device peers in **Neon** Postgres
 - `POST /api/peers` mints a WireGuard keypair + client config JSON
+- Allocates `10.66.0.2`–`10.66.0.251` (lowest free; unique in DB; reuses holes after DELETE)
 
 Pushing the peer public key to the VPN VM is still an operator step in V1
 (`wg set` / extend with a small reconciler later).

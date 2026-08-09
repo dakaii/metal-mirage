@@ -52,8 +52,23 @@ umask 077
 PEER_PRIV="$(wg genkey)"
 PEER_PUB="$(printf '%s' "${PEER_PRIV}" | wg pubkey)"
 
-# Allocate a simple host octet from peer name hash (demo-quality; collisions possible).
-OCTET=$(( ( $(printf '%s' "${PEER}" | cksum | awk '{print $1}') % 250 ) + 2 ))
+# Allocate the lowest free 10.66.0.2–251 by inspecting peers already on the VM.
+# (Matches control-plane NextIP pool; avoids the old name-hash collision bug.)
+USED_OCTETS="$(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 \
+  "${SSH_USER}@${PUBLIC_IP}" \
+  "sudo wg show wg0 allowed-ips 2>/dev/null || true" |
+  grep -oE '10\.66\.0\.[0-9]+' | awk -F. '{print $4}' | sort -n | uniq || true)"
+OCTET="$(awk '
+  BEGIN { for (i = 2; i <= 251; i++) free[i] = 1 }
+  NF { free[$1 + 0] = 0 }
+  END {
+    for (i = 2; i <= 251; i++) if (free[i]) { print i; exit }
+  }
+' <<< "${USED_OCTETS}")"
+if [[ -z "${OCTET}" ]]; then
+  echo "peer IP pool exhausted on ${PUBLIC_IP} (10.66.0.2–251)" >&2
+  exit 1
+fi
 PEER_IP="10.66.0.${OCTET}"
 
 CONF="${OUT_DIR}/${CITY}-${PEER}.conf"

@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS peers (
   UNIQUE (user_id, name)
 );
 CREATE INDEX IF NOT EXISTS peers_user_id_idx ON peers(user_id);
+-- Enforce one peer per WireGuard address (NextIP reuses holes after DELETE).
+CREATE UNIQUE INDEX IF NOT EXISTS peers_allocated_ip_uidx ON peers(allocated_ip);
 `)
 	return err
 }
