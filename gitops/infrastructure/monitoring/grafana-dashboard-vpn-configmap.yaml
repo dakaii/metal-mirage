@@ -1,3 +1,5 @@
+# Sidecar-friendly Grafana dashboard (label grafana_dashboard=1).
+# Host metrics only (node_exporter). Peer/handshake panels need a WG exporter — not in V1.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -8,20 +10,143 @@ metadata:
 data:
   vpn-gateway.json: |
     {
+      "uid": "metal-mirage-vpn",
       "title": "VPN Gateway",
+      "tags": ["vpn", "metal-mirage"],
       "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 2,
+      "editable": true,
+      "time": { "from": "now-6h", "to": "now" },
+      "refresh": "30s",
+      "templating": {
+        "list": [
+          {
+            "name": "city",
+            "type": "query",
+            "datasource": { "type": "prometheus", "uid": "${datasource}" },
+            "query": "label_values(up{job=\"vpn-gateway\"}, city)",
+            "includeAll": true,
+            "multi": true,
+            "current": { "text": "All", "value": "$__all" }
+          }
+        ]
+      },
       "panels": [
         {
+          "id": 1,
           "type": "stat",
-          "title": "Gateway Up",
-          "targets": [{ "expr": "up{job=\"vpn-gateway\"}" }]
+          "title": "Gateway up",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "up{job=\"vpn-gateway\",city=~\"$city\"}",
+              "legendFormat": "{{city}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+              ]
+            }
+          }
         },
         {
+          "id": 2,
           "type": "timeseries",
-          "title": "Node CPU",
-          "targets": [{ "expr": "rate(node_cpu_seconds_total{job=\"vpn-gateway\",mode=\"idle\"}[5m])" }]
+          "title": "CPU busy",
+          "gridPos": { "h": 8, "w": 9, "x": 6, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "1 - avg by (city) (rate(node_cpu_seconds_total{job=\"vpn-gateway\",mode=\"idle\",city=~\"$city\"}[5m]))",
+              "legendFormat": "{{city}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0,
+              "max": 1
+            }
+          }
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Memory available",
+          "gridPos": { "h": 8, "w": 9, "x": 15, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "node_memory_MemAvailable_bytes{job=\"vpn-gateway\",city=~\"$city\"} / node_memory_MemTotal_bytes{job=\"vpn-gateway\",city=~\"$city\"}",
+              "legendFormat": "{{city}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0,
+              "max": 1
+            }
+          }
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Root filesystem free",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "node_filesystem_avail_bytes{job=\"vpn-gateway\",mountpoint=\"/\",fstype!~\"tmpfs|overlay\",city=~\"$city\"} / node_filesystem_size_bytes{job=\"vpn-gateway\",mountpoint=\"/\",fstype!~\"tmpfs|overlay\",city=~\"$city\"}",
+              "legendFormat": "{{city}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0,
+              "max": 1
+            }
+          }
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Network RX/TX (non-lo)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "sum by (city) (rate(node_network_receive_bytes_total{job=\"vpn-gateway\",device!=\"lo\",city=~\"$city\"}[5m]))",
+              "legendFormat": "{{city}} rx"
+            },
+            {
+              "expr": "sum by (city) (rate(node_network_transmit_bytes_total{job=\"vpn-gateway\",device!=\"lo\",city=~\"$city\"}[5m]))",
+              "legendFormat": "{{city}} tx"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps"
+            }
+          }
+        },
+        {
+          "id": 6,
+          "type": "timeseries",
+          "title": "Load average (1m)",
+          "gridPos": { "h": 6, "w": 24, "x": 0, "y": 16 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "targets": [
+            {
+              "expr": "node_load1{job=\"vpn-gateway\",city=~\"$city\"}",
+              "legendFormat": "{{city}}"
+            }
+          ]
         }
-      ],
-      "schemaVersion": 39,
-      "version": 1
+      ]
     }

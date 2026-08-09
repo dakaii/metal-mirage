@@ -6,8 +6,18 @@ metadata:
   namespace: monitoring
 data:
   README: |
-    Run ./scripts/vpn-prometheus-scrape-snippet.sh after the vpn stack is up,
-    then add the YAML to kube-prometheus-stack additionalScrapeConfigs.
-    Install kube-prometheus-stack separately (Helm) if not already present.
-    PrometheusRule samples: monitoring/optional/prometheus-rules-vpn.yaml
+    After ./scripts/up.sh vpn:
+
+      ./scripts/vpn-prometheus-scrape-snippet.sh
+
+    Merge the printed Helm values fragment under kube-prometheus-stack
+    (prometheus.prometheusSpec.additionalScrapeConfigs), then upgrade/reconcile.
+
+    Reachability: vpn:adminCidr gates TCP 9100 (node_exporter). A laptop /32 means
+    in-cluster Prometheus cannot scrape the public IP — widen NSG for cluster egress,
+    scrape via an admin jump host, or temporarily use 0.0.0.0/0 for demos.
+
+    Host metrics only. Peer/handshake metrics need a WireGuard exporter (not in V1).
+
+    Alert samples: monitoring/optional/prometheus-rules-vpn.yaml
     (requires monitoring.coreos.com CRDs — not applied by default Flux path).
