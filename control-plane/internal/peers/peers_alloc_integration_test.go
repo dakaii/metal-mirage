@@ -48,5 +48,18 @@ func TestCreateAllocatesUniqueIPsAndReusesHoles(t *testing.T) {
 	if p3.AllocatedIP != p1.AllocatedIP {
 		t.Fatalf("expected hole reuse %s, got %s", p1.AllocatedIP, p3.AllocatedIP)
 	}
+	byCity, err := store.ListByCity(ctx, "us")
+	if err != nil {
+		t.Fatalf("ListByCity: %v", err)
+	}
+	found := map[string]bool{}
+	for _, p := range byCity {
+		if p.UserID == "ip-alloc-integration" {
+			found[p.Name] = true
+		}
+	}
+	if !found["b"] || !found["c"] {
+		t.Fatalf("ListByCity missing integration peers: %#v", found)
+	}
 	t.Logf("p1=%s p2=%s p3=%s (hole reused)", p1.AllocatedIP, p2.AllocatedIP, p3.AllocatedIP)
 }

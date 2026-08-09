@@ -19,6 +19,20 @@ Stock WireGuard clients only. Not on the Traefik/HTTP path.
 
 Import `vpn-clients/us-laptop.conf` into the official WireGuard app.
 
+### Optional: sync control-plane peers → VM
+
+If you mint peers via the Clerk + Neon API (`control-plane/`), project them onto WireGuard:
+
+```bash
+DATABASE_URL='…' ./scripts/vpn-reconcile-peers.sh          # upsert
+DATABASE_URL='…' ./scripts/vpn-reconcile-peers.sh --prune  # also remove WG peers not in DB
+DATABASE_URL='…' ./scripts/vpn-reconcile-peers.sh --dry-run
+# Empty DB + --prune refuses unless intentional:
+# RECONCILE_I_MEAN_IT=1 DATABASE_URL='…' ./scripts/vpn-reconcile-peers.sh --prune
+```
+
+Reads Neon directly (not the per-user HTTP API); SSHs like `vpn-bootstrap.sh`. Default is **no prune** so bootstrap-only peers survive. `--prune` with zero DB peers for the city is refused unless `RECONCILE_I_MEAN_IT=1`.
+
 ## Monitoring
 
 ```bash

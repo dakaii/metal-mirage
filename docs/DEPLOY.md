@@ -90,7 +90,11 @@ cd ../..
 ./scripts/up.sh vpn
 ./scripts/vpn-bootstrap.sh laptop
 ./scripts/vpn-prometheus-scrape-snippet.sh
+# Optional: after control-plane minting
+# DATABASE_URL='…' ./scripts/vpn-reconcile-peers.sh
 ```
+
+Failover drills (Traffic Manager + witness): [DR.md](DR.md).
 
 ## Tear down
 

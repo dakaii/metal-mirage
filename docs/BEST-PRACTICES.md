@@ -44,6 +44,9 @@ Short, actionable checklist for operators and contributors. Scope is **self-host
 | Full-tunnel `AllowedIPs = 0.0.0.0/0, ::/0` is intentional — say so | Honesty for portfolio/self-host |
 | cloud-init must be idempotent (reuse `server.key`, preserve `[Peer]` on rewrite) | VM reprovision / script re-runs |
 | Mint peers with `scripts/vpn-bootstrap.sh`; do not commit `.conf` files | Operator path, not SaaS onboarding |
+| After control-plane `POST /api/peers`, run `scripts/vpn-reconcile-peers.sh` | API writes Neon only; VM is a projection |
+| Default reconcile without `--prune` | Keeps bootstrap-only peers; prune only when DB is intentional SoT |
+| Practice failover with [DR.md](DR.md) | TM DNS TTL + witness logs ≠ automatic cutover |
 
 ## GitOps (Flux)
 
