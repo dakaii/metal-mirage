@@ -1,6 +1,8 @@
 # Control plane (Phase 3) — Clerk + Neon peer portal
 
-Optional productization layer on top of the WireGuard city exit.
+**Optional** demo layer on top of the WireGuard city exit. Not required for primary/standby/GitOps/VPN stacks.
+
+**Not in scope here:** Stripe, Clerk Billing, subscriptions, rate-limit product features, or multi-tenant SaaS abuse controls. See [docs/ROADMAP.md](../docs/ROADMAP.md).
 
 ## What it does
 

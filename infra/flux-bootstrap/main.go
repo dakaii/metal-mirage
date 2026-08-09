@@ -15,7 +15,7 @@ func main() {
 		kubeconfig := cfg.RequireSecret("kubeconfig")
 		repoURL := cfg.Get("repoUrl")
 		if repoURL == "" {
-			repoURL = "https://github.com/OWNER/metal-mirage"
+			repoURL = "https://github.com/dakaii/metal-mirage"
 		}
 		branch := cfg.Get("branch")
 		if branch == "" {

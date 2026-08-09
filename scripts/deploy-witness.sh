@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Zip-deploy the witness Function App sources.
+# Zip-deploy the witness Function App sources from infra/shared/witness.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${ROOT}/infra/shared"
 APP="$(pulumi stack output witnessFunctionName)"
-RG="$(pulumi stack output --json 2>/dev/null | python3 -c "import sys,json; print('shared-rg')" 2>/dev/null || true)"
-# Prefer resource group from Azure naming — look up by function name
 RG="$(az functionapp list --query "[?name=='${APP}'].resourceGroup | [0]" -o tsv)"
+if [[ -z "${RG}" || "${RG}" == "null" ]]; then
+  echo "Could not resolve resource group for function app ${APP}" >&2
+  exit 1
+fi
 ZIP="$(mktemp -t witnessXXXX).zip"
 (
   cd "${ROOT}/infra/shared/witness"

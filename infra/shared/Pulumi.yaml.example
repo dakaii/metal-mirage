@@ -1,0 +1,12 @@
+# Example only — see docs/CONFIG.md
+name: metal-mirage-shared
+runtime: go
+description: Traffic Manager failover + optional witness Function
+# Required:
+#   pulumi config set shared:primaryIngressIP '<primary ingress public IP>'
+# If witness enabled (default):
+#   pulumi config set shared:primaryAPIURL 'https://<api-ip>:6443/readyz'
+# Optional:
+#   pulumi config set shared:standbyFQDN '<aks fqdn>'
+#   pulumi config set shared:enableWitness false
+# Or let ./scripts/up.sh all wire outputs from primary/standby stacks.

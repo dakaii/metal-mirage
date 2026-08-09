@@ -1,5 +1,7 @@
 # Deploy guide
 
+Config key reference: [CONFIG.md](CONFIG.md). Roadmap / OSS boundary: [ROADMAP.md](ROADMAP.md).
+
 ## Prerequisites
 
 - Azure CLI (`az login`) with a subscription
@@ -25,10 +27,15 @@ pulumi config set primary:workerCount 1
 
 ```bash
 ./scripts/up.sh primary
+mkdir -p .secrets
 pulumi -C infra/primary stack output kubeconfig --show-secrets > .secrets/primary.kubeconfig
 export KUBECONFIG=$PWD/.secrets/primary.kubeconfig
 kubectl get nodes
+# After Flux reconciles the demo app:
+#   curl -fsS "http://$(pulumi -C infra/primary stack output ingressIP)/healthz"
 ```
+
+Primary exposes the demo via an Azure Load Balancer on the `ingressIP` → NodePort `30080` (no cloud-controller / Traefik required for the portfolio path).
 
 ## 3. Flux GitOps
 

@@ -10,11 +10,6 @@ spec:
   sourceRef:
     kind: GitRepository
     name: metal-mirage
-  healthChecks:
-    - apiVersion: apps/v1
-      kind: Deployment
-      name: demo
-      namespace: demo
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -30,3 +25,8 @@ spec:
     name: metal-mirage
   dependsOn:
     - name: infrastructure
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: demo
+      namespace: demo

@@ -70,12 +70,13 @@ pulumi login   # or pulumi login --local
 |-----|----------|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layers, metal-sim, failover, VPN split, Clerk/Neon |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Full bring-up (Flux, witness, VPN peers) |
+| [docs/CONFIG.md](docs/CONFIG.md) | Pulumi / env config keys |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Now / Next / Later + OSS commercial boundary |
 | [docs/PORTABLE-ARCHITECTURE.md](docs/PORTABLE-ARCHITECTURE.md) | L1 switch contract + hybrid matrix |
 | [docs/VPN.md](docs/VPN.md) | City exits, monitoring, honesty notes |
 | [docs/COST.md](docs/COST.md) | Idle billing |
 | [docs/PORTFOLIO-DEMO.md](docs/PORTFOLIO-DEMO.md) | Talk track — bring stack up the night before |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Now / Next / Later + OSS commercial boundary |
-| [control-plane/README.md](control-plane/README.md) | Clerk + Neon peer portal (Phase 3) |
+| [control-plane/README.md](control-plane/README.md) | Optional Clerk + Neon peer portal (Phase 3) |
 
 ## Project layout
 
@@ -87,7 +88,7 @@ infra/shared/              ← Traffic Manager + witness
 infra/vpn-gateways/        ← WireGuard city exits (cloud-init)
 infra/flux-bootstrap/      ← Flux Helm controllers
 gitops/                    ← Flux manifests
-control-plane/             ← Clerk + Neon peer portal (Phase 3)
+control-plane/             ← optional Clerk + Neon peer portal (Phase 3)
 scripts/                   ← up / destroy / vpn helpers
 docs/
 ```
@@ -97,4 +98,5 @@ docs/
 - Idle Azure VMs/AKS still bill — destroy when not demoing.
 - Home bare-metal VPN exit needs a public IP (or CGNAT workaround); default demo uses Azure public IPs.
 - Traffic Manager failover follows DNS TTL — not instant L4.
-- This is a learning / portfolio platform, not a commercial VPN product.
+- This is a learning / portfolio / self-host platform, not a commercial VPN product.
+- Billing, subscriptions, and multi-tenant SaaS features are out of scope — see [docs/ROADMAP.md](docs/ROADMAP.md).

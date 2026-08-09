@@ -39,9 +39,10 @@ func main() {
 				RelativeName: pulumi.String("metal-mirage-app"),
 				Ttl:          pulumi.Float64(30),
 			},
+			// HTTP:80 matches metal-sim Azure LB → demo NodePort (no TLS required for portfolio DR).
 			MonitorConfig: &network.MonitorConfigArgs{
-				Protocol:                  network.MonitorProtocolHTTPS,
-				Port:                      pulumi.Float64(443),
+				Protocol:                  network.MonitorProtocolHTTP,
+				Port:                      pulumi.Float64(80),
 				Path:                      pulumi.String("/healthz"),
 				IntervalInSeconds:         pulumi.Float64(30),
 				TimeoutInSeconds:          pulumi.Float64(10),

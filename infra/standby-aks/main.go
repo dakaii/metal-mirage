@@ -91,7 +91,7 @@ func main() {
 		clusterArgs := &containerservice.ManagedClusterArgs{
 			ResourceGroupName: rg.Name,
 			Location:          rg.Location,
-			DnsPrefix:         pulumi.String("hybrid-standby"),
+			DnsPrefix:         pulumi.String("metal-mirage-standby"),
 			Identity: &containerservice.ManagedClusterIdentityArgs{
 				Type: containerservice.ResourceIdentityTypeUserAssigned,
 				UserAssignedIdentities: pulumi.StringArray{

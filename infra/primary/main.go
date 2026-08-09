@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/pulumi/pulumi-azure-native-sdk/authorization/v2"
 	"github.com/pulumi/pulumi-azure-native-sdk/compute/v2"
 	"github.com/pulumi/pulumi-azure-native-sdk/network/v2"
 	"github.com/pulumi/pulumi-azure-native-sdk/resources/v2"
@@ -12,6 +13,14 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 	taloscluster "github.com/pulumiverse/pulumi-talos/sdk/go/talos/cluster"
 	"github.com/pulumiverse/pulumi-talos/sdk/go/talos/machine"
+)
+
+const (
+	ingressLBName       = "ingress-lb"
+	ingressFrontendName = "ingress-frontend"
+	ingressBackendName  = "ingress-backend"
+	ingressProbeName    = "demo-http"
+	demoNodePort        = 30080
 )
 
 func main() {
@@ -23,6 +32,11 @@ func main() {
 		cpCount := cfgGetInt(cfg, "controlPlaneCount", 1)
 		workerCount := cfgGetInt(cfg, "workerCount", 1)
 		vmSize := cfgGet(cfg, "vmSize", "Standard_B2s")
+
+		clientCfg, err := authorization.GetClientConfig(ctx)
+		if err != nil {
+			return err
+		}
 
 		rg, err := resources.NewResourceGroup(ctx, "primary-rg", &resources.ResourceGroupArgs{
 			Location: pulumi.String(location),
@@ -61,6 +75,7 @@ func main() {
 				tcpAllow("allow-k8s-api", 1004, "6443"),
 				tcpAllow("allow-https", 1005, "443"),
 				tcpAllow("allow-http", 1006, "80"),
+				tcpAllow("allow-demo-nodeport", 1007, fmt.Sprintf("%d", demoNodePort)),
 			},
 		})
 		if err != nil {
@@ -87,6 +102,57 @@ func main() {
 			PublicIPAllocationMethod: network.IPAllocationMethodStatic,
 			Sku: &network.PublicIPAddressSkuArgs{
 				Name: network.PublicIPAddressSkuNameStandard,
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		frontendID := lbChildID(clientCfg.SubscriptionId, rg.Name, ingressLBName, "frontendIPConfigurations", ingressFrontendName)
+		backendID := lbChildID(clientCfg.SubscriptionId, rg.Name, ingressLBName, "backendAddressPools", ingressBackendName)
+		probeID := lbChildID(clientCfg.SubscriptionId, rg.Name, ingressLBName, "probes", ingressProbeName)
+
+		// Azure LB fronts demo NodePort 30080 (no cloud-controller required on Talos metal-sim).
+		ingressLB, err := network.NewLoadBalancer(ctx, "ingress-lb", &network.LoadBalancerArgs{
+			LoadBalancerName:  pulumi.String(ingressLBName),
+			ResourceGroupName: rg.Name,
+			Location:          rg.Location,
+			Sku: &network.LoadBalancerSkuArgs{
+				Name: network.LoadBalancerSkuNameStandard,
+			},
+			FrontendIPConfigurations: network.FrontendIPConfigurationArray{
+				&network.FrontendIPConfigurationArgs{
+					Name:            pulumi.String(ingressFrontendName),
+					PublicIPAddress: &network.PublicIPAddressTypeArgs{Id: ingressPip.ID()},
+				},
+			},
+			BackendAddressPools: network.BackendAddressPoolArray{
+				&network.BackendAddressPoolArgs{Name: pulumi.String(ingressBackendName)},
+			},
+			Probes: network.ProbeArray{
+				&network.ProbeArgs{
+					Name:              pulumi.String(ingressProbeName),
+					Protocol:          network.ProbeProtocolHttp,
+					Port:              pulumi.Int(demoNodePort),
+					RequestPath:       pulumi.String("/healthz"),
+					IntervalInSeconds: pulumi.Int(10),
+					NumberOfProbes:    pulumi.Int(2),
+				},
+			},
+			LoadBalancingRules: network.LoadBalancingRuleArray{
+				&network.LoadBalancingRuleArgs{
+					Name:                    pulumi.String("http"),
+					Protocol:                network.TransportProtocolTcp,
+					FrontendIPConfiguration: &network.SubResourceArgs{Id: frontendID},
+					FrontendPort:            pulumi.Int(80),
+					BackendPort:             pulumi.Int(demoNodePort),
+					EnableFloatingIP:        pulumi.Bool(false),
+					IdleTimeoutInMinutes:    pulumi.Int(4),
+					LoadDistribution:        network.LoadDistributionDefault,
+					Probe:                   &network.SubResourceArgs{Id: probeID},
+					BackendAddressPool:  &network.SubResourceArgs{Id: backendID},
+					DisableOutboundSnat: pulumi.Bool(false), // SNAT for workers without public IPs
+				},
 			},
 		})
 		if err != nil {
@@ -155,20 +221,23 @@ func main() {
 						Subnet:                    &network.SubnetTypeArgs{Id: subnet.ID()},
 						PrivateIPAllocationMethod: network.IPAllocationMethodDynamic,
 						PublicIPAddress:           &network.PublicIPAddressTypeArgs{Id: publicIPID},
+						LoadBalancerBackendAddressPools: network.BackendAddressPoolArray{
+							&network.BackendAddressPoolArgs{Id: backendID},
+						},
 					},
 				},
-			})
+			}, pulumi.DependsOn([]pulumi.Resource{ingressLB}))
 			if err != nil {
 				return err
 			}
 
 			cpCfg := machine.GetConfigurationOutput(ctx, machine.GetConfigurationOutputArgs{
-				ClusterName:       pulumi.String(clusterName),
-				MachineType:       pulumi.String("controlplane"),
-				ClusterEndpoint:   clusterEndpoint,
-				MachineSecrets:    secrets.MachineSecrets,
-				Docs:              pulumi.Bool(false),
-				Examples:          pulumi.Bool(false),
+				ClusterName:     pulumi.String(clusterName),
+				MachineType:     pulumi.String("controlplane"),
+				ClusterEndpoint: clusterEndpoint,
+				MachineSecrets:  secrets.MachineSecrets,
+				Docs:            pulumi.Bool(false),
+				Examples:        pulumi.Bool(false),
 			})
 
 			vm, err := newTalosVM(ctx, name, rg, nic, talosImageID, vmSize, 30, cpCfg.MachineConfiguration())
@@ -214,9 +283,12 @@ func main() {
 						Name:                      pulumi.String("ipconfig"),
 						Subnet:                    &network.SubnetTypeArgs{Id: subnet.ID()},
 						PrivateIPAllocationMethod: network.IPAllocationMethodDynamic,
+						LoadBalancerBackendAddressPools: network.BackendAddressPoolArray{
+							&network.BackendAddressPoolArgs{Id: backendID},
+						},
 					},
 				},
-			})
+			}, pulumi.DependsOn([]pulumi.Resource{ingressLB}))
 			if err != nil {
 				return err
 			}
@@ -269,6 +341,8 @@ func main() {
 		ctx.Export("resourceGroupName", rg.Name)
 		ctx.Export("apiLoadBalancerIP", apiPip.IpAddress)
 		ctx.Export("ingressIP", ingressPip.IpAddress)
+		ctx.Export("ingressLoadBalancer", ingressLB.Name)
+		ctx.Export("demoNodePort", pulumi.Int(demoNodePort))
 		ctx.Export("controlPlanePublicIPs", pulumi.StringArray(cpIPsToArray(cpIPs)))
 		ctx.Export("clusterEndpoint", clusterEndpoint)
 		ctx.Export("kubeconfig", pulumi.ToSecret(kubeconfig.KubeconfigRaw))
@@ -276,6 +350,15 @@ func main() {
 
 		return nil
 	})
+}
+
+func lbChildID(subscriptionID string, rgName pulumi.StringOutput, lbName, collection, child string) pulumi.StringOutput {
+	return rgName.ApplyT(func(name string) string {
+		return fmt.Sprintf(
+			"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/%s/%s/%s",
+			subscriptionID, name, lbName, collection, child,
+		)
+	}).(pulumi.StringOutput)
 }
 
 func newTalosVM(

@@ -1,0 +1,12 @@
+# Example only — copy keys with `pulumi config set`, do not commit real stack YAML.
+# See docs/CONFIG.md
+name: metal-mirage-primary
+runtime: go
+description: Talos primary cluster on Azure VMs (bare-metal simulation)
+# Required after ./scripts/register-talos-image.sh:
+#   pulumi config set primary:talosImageId '<gallery image resource id>'
+# Optional:
+#   pulumi config set primary:location eastus
+#   pulumi config set primary:controlPlaneCount 1
+#   pulumi config set primary:workerCount 1
+#   pulumi config set primary:vmSize Standard_B2s

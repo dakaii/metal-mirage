@@ -4,7 +4,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CLUSTER="${1:-primary}"
-REPO_URL="${GITOPS_REPO_URL:-$(git -C "${ROOT}" remote get-url origin 2>/dev/null || echo "https://github.com/OWNER/metal-mirage")}"
+REPO_URL="${GITOPS_REPO_URL:-$(git -C "${ROOT}" remote get-url origin 2>/dev/null || echo "https://github.com/dakaii/metal-mirage")}"
 BRANCH="${GITOPS_BRANCH:-main}"
 
 command -v flux >/dev/null || {

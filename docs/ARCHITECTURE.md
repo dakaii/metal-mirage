@@ -31,7 +31,7 @@ Successor ideas from [fantastic-spoon](https://github.com/dakaii/fantastic-spoon
 
 | Layer | Path | Responsibility |
 |-------|------|----------------|
-| L1 primary | `infra/primary` | Talos secrets, machine config, Azure VMs, API + ingress public IPs |
+| L1 primary | `infra/primary` | Talos secrets, machine config, Azure VMs, API PIP + ingress LB (→ NodePort 30080) |
 | L1 standby | `infra/standby-aks` | AKS + Velero Blob storage + identity |
 | L1 VPN | `infra/vpn-gateways` | Ubuntu city-exit VM, cloud-init WireGuard |
 | L3 | `infra/flux-bootstrap`, `gitops/` | Helm Flux install; GitRepository/Kustomizations in-repo |
@@ -127,7 +127,7 @@ Multi-city = another stack/region with a `city` tag; clients switch profiles man
 
 - **Primary** external endpoint → primary ingress IP (priority 1).
 - **Standby** external endpoint → AKS FQDN when configured (priority 2).
-- Monitor: HTTPS `:443` path `/healthz`, 30s interval, 3 tolerated failures.
+- Monitor: HTTP `:80` path `/healthz`, 30s interval, 3 tolerated failures (metal-sim Azure LB → demo NodePort `30080`; no TLS required for portfolio DR).
 - DNS relative name `metal-mirage-app` → `*.trafficmanager.net` (custom domain optional via config).
 
 Optional witness Function App (Python 3.11, Consumption Y1) provides an additional readiness signal; wire it with `scripts/deploy-witness.sh` after `./scripts/up.sh shared`.

@@ -23,6 +23,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: metal-mirage
+  # Cold standby: keep manifests, scale demo to zero until failover drill.
   patches:
     - patch: |-
         apiVersion: apps/v1

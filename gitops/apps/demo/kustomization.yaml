@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: demo
 resources:
   - namespace.yaml
+  - nginx-configmap.yaml
   - deployment.yaml
   - service.yaml
   - ingress.yaml
