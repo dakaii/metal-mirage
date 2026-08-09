@@ -8,7 +8,7 @@ Successor ideas from [fantastic-spoon](https://github.com/dakaii/fantastic-spoon
 
 1. **Portability** — swap Azure metal-sim for real bare metal by changing Layer 1 only.
 2. **API-driven bootstrap** — Talos machine config via Pulumi; no SSH playbooks for the K8s OS.
-3. **Honest DR story** — primary + AKS standby behind priority Traffic Manager + a witness Function.
+3. **Honest DR story** — primary + AKS standby behind priority Traffic Manager + a witness Function ([DR.md](DR.md)).
 4. **Split planes** — consumer VPN is not on the Traefik/HTTP path; platform ops stay on Talos/Flux.
 5. **Demoable cost** — destroy stacks when idle; see [COST.md](COST.md).
 

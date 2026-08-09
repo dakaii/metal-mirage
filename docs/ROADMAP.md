@@ -9,7 +9,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 | Area | Status intent |
 |------|----------------|
 | Pulumi Go stacks: `primary` (Talos metal-sim), `bare-metal` (thin L1), `standby-aks`, `shared` (Traffic Manager + witness), `vpn-gateways` | Ship / harden |
-| Scripts: `register-talos-image`, `up` / `destroy`, `validate-inventory`, `vpn-bootstrap`, `install-flux`, `deploy-witness` | Documented, runnable |
+| Scripts: `register-talos-image`, `up` / `destroy`, `validate-inventory`, `vpn-bootstrap`, `vpn-reconcile-peers`, `install-flux`, `deploy-witness` | Documented, runnable |
 | GitOps: Flux bootstrap path + demo app + monitoring scrape/alert hints | Kustomize-valid |
 | Docs: ARCHITECTURE, DEPLOY, VPN, COST, PORTABLE, CONFIG, BEST-PRACTICES, this ROADMAP | Honest portfolio/self-host framing |
 | Optional Phase 3 demo: Clerk + Neon peer registry in `control-plane/` | Minimal API only; clearly optional |
@@ -18,10 +18,14 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 
 ## Next (OSS hardening)
 
-- Operator runbooks: DR drill (Traffic Manager + witness), VPN peer lifecycle without a SaaS product
 - Deeper VPN observability (Prometheus scrape wiring, dashboard polish) — still single-tenant / self-host
 - Contributor UX: config examples, clearer failure messages in scripts, secret-scan hygiene
-- Optional: small reconciler that pushes peer pubkeys from the control-plane DB to the VPN VM (operator-grade, not multi-tenant abuse controls)
+- Automate witness hook (Event Grid / scale standby) beyond `FAILOVER_CANDIDATE` logs — still optional
+
+### Recently landed
+
+- DR drill runbook: [DR.md](DR.md) (Traffic Manager `:80/healthz` vs witness `:6443/readyz`)
+- Optional peer reconciler: `./scripts/vpn-reconcile-peers.sh` (+ `control-plane/cmd/listpeers`) — DB → `wg set`, optional `--prune`
 
 ## Later — commercial / out of this repo
 
@@ -33,7 +37,7 @@ Do **not** implement these in metal-mirage. Keep them in a separate commercial c
 - Managed hosted control plane as a paid product
 - Hard-coded vendor secrets or license keys
 
-The optional Clerk + Neon peer API in OSS is a **demo**, not a billing surface. Pushing peers onto the VPN VM remains an operator step unless a thin open reconciler lands under **Next**.
+The optional Clerk + Neon peer API in OSS is a **demo**, not a billing surface. Pushing peers onto the VPN VM is an operator step via `./scripts/vpn-reconcile-peers.sh` (not inlined into `POST /api/peers`).
 
 ## Boundary checklist (when reviewing PRs)
 

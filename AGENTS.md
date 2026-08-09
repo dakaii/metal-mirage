@@ -39,4 +39,5 @@ This repo is an **Infrastructure-as-Code / GitOps** project (Pulumi Go + Talos o
 - **Gotcha — invalid inherited `CLERK_SECRET_KEY`:** some cloud envs inject a short placeholder `sk_test_…` that Clerk rejects (`clerk_key_invalid`). `godotenv` does **not** override existing process env, so that placeholder wins over `.env` and authenticated routes stay `401`. Always `env -u CLERK_SECRET_KEY go run ./cmd/server` (or export the real key) after writing `.env`.
 - Gotcha: `DATABASE_URL` contains `&` (query params), so `set -a; . control-plane/.env` mangles it. Prefer letting the app load `.env`, or `export DATABASE_URL='...'` with single quotes.
 - `control-plane/.env` is gitignored — never commit real connection strings or Clerk secrets.
-- Peer IPs are allocated in Postgres (`10.66.0.2`–`.251`); `vpn-bootstrap.sh` reads live `wg` state. The two can drift until a reconciler exists.
+- Peer IPs are allocated in Postgres (`10.66.0.2`–`.251`); `vpn-bootstrap.sh` reads live `wg` state. Sync DB → VM with `./scripts/vpn-reconcile-peers.sh` (uses `go run ./cmd/listpeers`; optional `--prune`). Needs a real `vpn` Pulumi stack + SSH.
+- DR drill steps: [docs/DR.md](docs/DR.md) (TM `:80/healthz` vs witness `:6443/readyz`; witness is advisory only).

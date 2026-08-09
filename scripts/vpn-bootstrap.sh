@@ -53,8 +53,8 @@ PEER_PRIV="$(wg genkey)"
 PEER_PUB="$(printf '%s' "${PEER_PRIV}" | wg pubkey)"
 
 # Allocate the lowest free 10.66.0.2–251 by inspecting peers already on the VM.
-# Matches control-plane's pool math, but reads live wg state (not the Neon DB) —
-# the two can drift until a reconciler exists. Avoids the old name-hash collision bug.
+# Matches control-plane's pool math, but reads live wg state (not the Neon DB).
+# After minting peers via control-plane, sync with ./scripts/vpn-reconcile-peers.sh.
 USED_OCTETS="$(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 \
   "${SSH_USER}@${PUBLIC_IP}" \
   "sudo wg show wg0 allowed-ips 2>/dev/null || true" |

@@ -63,6 +63,23 @@ FROM peers WHERE user_id=$1 ORDER BY created_at DESC`, userID)
 		return nil, err
 	}
 	defer rows.Close()
+	return scanPeers(rows)
+}
+
+// ListByCity returns all peers for a VPN city (operator / reconciler path).
+// Not exposed on the Clerk-authenticated HTTP API.
+func (s *Store) ListByCity(ctx context.Context, city string) ([]Peer, error) {
+	rows, err := s.pool.Query(ctx, `
+SELECT id::text, user_id, name, public_key, allocated_ip, city, created_at
+FROM peers WHERE city=$1 ORDER BY allocated_ip`, city)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanPeers(rows)
+}
+
+func scanPeers(rows pgx.Rows) ([]Peer, error) {
 	var out []Peer
 	for rows.Next() {
 		var p Peer

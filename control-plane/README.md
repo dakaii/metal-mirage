@@ -15,7 +15,14 @@
 Pushing the peer public key to the VPN VM is still an operator step in V1
 (`wg set` / extend with a small reconciler later).
 
-**Honesty — DB vs WireGuard drift:** this API only writes to Postgres. `scripts/vpn-bootstrap.sh` allocates from live `wg show` on the VM. Until a reconciler lands, the two pools can disagree — treat them as separate paths, or push peer pubkeys manually after minting.
+**Honesty — DB vs WireGuard drift:** this API only writes to Postgres. `scripts/vpn-bootstrap.sh` allocates from live `wg show` on the VM. After `POST /api/peers`, push DB peers onto the city VM with:
+
+```bash
+DATABASE_URL='…' ./scripts/vpn-reconcile-peers.sh
+# optional: --prune removes WireGuard peers absent from the DB for that city
+```
+
+`DELETE /api/peers/{id}` removes the DB row only — re-run reconcile with `--prune` to drop it from `wg`.
 
 ## Setup
 
