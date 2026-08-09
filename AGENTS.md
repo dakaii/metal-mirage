@@ -28,15 +28,20 @@ This repo is an **Infrastructure-as-Code / GitOps** project (Pulumi Go + Talos o
 - `cd control-plane && go run ./cmd/server` — loads `.env` via `godotenv`, connects to Postgres, runs a migration that creates the `peers` table, initializes Clerk, and listens on `:PORT` (default 8080). See `control-plane/README.md` and `control-plane/.env.example`.
 - Requires `DATABASE_URL` (a Neon Postgres works) and a **valid** `CLERK_SECRET_KEY`. Public `GET /healthz` boots with any non-empty key string; `/api/peers*` needs a real Clerk instance + Bearer session JWT.
 - **Clerk MCP in this environment is snippets-only** (`clerk_sdk_snippet` / `list_clerk_sdk_snippets`) — it cannot mint apps or keys.
-- **Do not use the Dashboard for agent setup.** Provision a real `sk_test_…` without login via Clerk CLI keyless in a throwaway Next app, then copy the secret into gitignored `control-plane/.env`:
+- **Do not use the Dashboard for agent setup.** Prefer Homebrew Clerk CLI, then keyless init in a throwaway dir (do **not** run this inside `metal-mirage`):
   ```bash
+  # Linux cloud VM: install Homebrew once if missing, then:
+  #   NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  #   eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash)"
+  brew install clerk/stable/clerk
   unset CLERK_SECRET_KEY   # important: see gotcha below
   TMP=$(mktemp -d) && cd "$TMP"
-  npx -y clerk@latest init --framework next --keyless -y --mode agent --no-skills --pm npm
-  # keys land in my-clerk-next-app/.env.local
+  clerk init --framework next --keyless -y --mode agent --no-skills --pm npm
+  # keys land in my-clerk-next-app/.env.local — copy CLERK_SECRET_KEY into control-plane/.env
   ```
+  (`npx -y clerk@latest …` is fine if brew isn’t available; same flags.)
   Then mint a short-lived session JWT for HTTP tests (Backend API): create user → `POST /v1/sessions` → `POST /v1/sessions/{id}/tokens` → `Authorization: Bearer <jwt>` on `/api/peers`. Tokens expire ~60s.
-- **Gotcha — invalid inherited `CLERK_SECRET_KEY`:** some cloud envs inject a short placeholder `sk_test_…` that Clerk rejects (`clerk_key_invalid`). `godotenv` does **not** override existing process env, so that placeholder wins over `.env` and authenticated routes stay `401`. Always `env -u CLERK_SECRET_KEY go run ./cmd/server` (or export the real key) after writing `.env`.
+- **Gotcha — inherited env wins over `.env`:** `godotenv` does **not** override existing process env. Cloud envs may inject a short invalid placeholder `CLERK_SECRET_KEY` (`clerk_key_invalid`) and/or stale `VPN_*` values. Always start with a clean env for those vars, e.g. `env -u CLERK_SECRET_KEY -u VPN_ENDPOINT -u VPN_SERVER_PUBLIC_KEY -u VPN_CITY go run ./cmd/server` after writing `.env`.
 - Gotcha: `DATABASE_URL` contains `&` (query params), so `set -a; . control-plane/.env` mangles it. Prefer letting the app load `.env`, or `export DATABASE_URL='...'` with single quotes.
 - `control-plane/.env` is gitignored — never commit real connection strings or Clerk secrets.
 - Peer IPs are allocated in Postgres (`10.66.0.2`–`.251`); `vpn-bootstrap.sh` reads live `wg` state. Sync DB → VM with `./scripts/vpn-reconcile-peers.sh` (uses `go run ./cmd/listpeers`; optional `--prune`). Needs a real `vpn` Pulumi stack + SSH.
