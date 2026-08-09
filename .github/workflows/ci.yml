@@ -19,6 +19,7 @@ jobs:
       matrix:
         dir:
           - infra/primary
+          - infra/bare-metal
           - infra/standby-aks
           - infra/shared
           - infra/vpn-gateways
@@ -45,6 +46,10 @@ jobs:
           fi
           go vet ./...
           go build ./...
+      - name: inventory contract tests
+        if: matrix.dir == 'infra/bare-metal'
+        working-directory: infra/bare-metal
+        run: go test ./...
 
   kustomize:
     runs-on: ubuntu-latest
@@ -63,12 +68,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.x"
       - name: shellcheck
         run: |
           # Pin a current release (Ubuntu apt shellcheck is older and noisier).
           # -x follows `# shellcheck source=...` so shared helpers (lib.sh) are checked.
           curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz" | tar -xJ
           ./shellcheck-v0.10.0/shellcheck -x scripts/*.sh
+      - name: validate inventory (offline)
+        run: ./scripts/validate-inventory.sh
 
   actionlint:
     runs-on: ubuntu-latest

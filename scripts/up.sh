@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Bring up a stack: primary | standby | shared | vpn | all
+# primary/standby dirs come from config/clusters.yaml (provisioner switch).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib.sh
+source "${ROOT}/scripts/lib.sh"
 TARGET="${1:-primary}"
 STACK="${PULUMI_STACK:-dev}"
 
@@ -29,29 +32,28 @@ up_one() {
   )
 }
 
-stack_output() {
-  # Usage: stack_output <infra-dir> <output-name>
-  # Soft-fail: empty string if stack/output unavailable.
-  local dir="$1" name="$2"
-  (
-    cd "${ROOT}/${dir}" || exit 0
-    pulumi stack select "${STACK}" >/dev/null 2>&1 || exit 0
-    pulumi stack output "${name}" 2>/dev/null || exit 0
-  )
+primary_dir() {
+  resolve_pulumi_dir primary
+}
+
+standby_dir() {
+  resolve_pulumi_dir standby
 }
 
 wire_shared_from_outputs() {
-  local primary_ingress primary_api standby_fqdn
-  primary_ingress="$(stack_output infra/primary ingressIP)"
-  primary_api="$(stack_output infra/primary clusterEndpoint)"
-  standby_fqdn="$(stack_output infra/standby-aks aksFqdn)"
+  local primary_ingress primary_api standby_fqdn pdir sdir
+  pdir="$(primary_dir)"
+  sdir="$(standby_dir)"
+  primary_ingress="$(stack_output "${pdir}" ingressIP)"
+  primary_api="$(stack_output "${pdir}" clusterEndpoint)"
+  standby_fqdn="$(stack_output "${sdir}" aksFqdn)"
 
   if [[ -z "${primary_ingress}" ]]; then
     echo "warn: primary ingressIP not available; set shared:primaryIngressIP manually" >&2
     return 0
   fi
 
-  echo "==> wiring shared stack from primary/standby outputs"
+  echo "==> wiring shared stack from primary/standby outputs (${pdir})"
   (
     cd "${ROOT}/infra/shared"
     pulumi stack select "${STACK}" 2>/dev/null || pulumi stack init "${STACK}"
@@ -68,10 +70,10 @@ wire_shared_from_outputs() {
 
 case "${TARGET}" in
   primary)
-    up_one infra/primary
+    up_one "$(primary_dir)"
     ;;
   standby)
-    up_one infra/standby-aks
+    up_one "$(standby_dir)"
     ;;
   shared)
     wire_shared_from_outputs
@@ -81,8 +83,8 @@ case "${TARGET}" in
     up_one infra/vpn-gateways
     ;;
   all)
-    up_one infra/primary
-    up_one infra/standby-aks
+    up_one "$(primary_dir)"
+    up_one "$(standby_dir)"
     wire_shared_from_outputs
     up_one infra/shared
     up_one infra/vpn-gateways
@@ -90,6 +92,7 @@ case "${TARGET}" in
   *)
     echo "usage: $0 primary|standby|shared|vpn|all" >&2
     echo "env: PULUMI_STACK (default: dev)" >&2
+    echo "primary dir follows config/clusters.yaml (azure-metal-sim → infra/primary, bare-metal → infra/bare-metal)" >&2
     exit 1
     ;;
 esac

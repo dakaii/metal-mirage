@@ -1,0 +1,29 @@
+# Example primary switch to real hardware.
+# Copy the primary: block into config/clusters.yaml (or replace that file) when ready.
+#
+# Layers above L1 (Flux / demo / shared failover wiring) stay the same.
+# Offline demo: leave dryRun=true in the bare-metal Pulumi stack (default).
+
+primary:
+  provisioner: bare-metal
+  pulumi_dir: infra/bare-metal
+  profile: primary
+  nodes:
+    - role: controlplane
+      ip: 192.168.1.10
+    - role: worker
+      ip: 192.168.1.11
+
+standby:
+  provisioner: aks
+  pulumi_dir: infra/standby-aks
+  profile: standby
+
+shared:
+  pulumi_dir: infra/shared
+
+vpn:
+  pulumi_dir: infra/vpn-gateways
+  cities:
+    us:
+      location: eastus

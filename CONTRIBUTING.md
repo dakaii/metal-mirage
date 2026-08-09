@@ -42,6 +42,7 @@ cd infra/primary && pulumi preview
 `main` uses GitHub **branch protection**: PRs required, and these **CI** status checks must pass (names must match exactly):
 
 - `go-build (infra/primary)`
+- `go-build (infra/bare-metal)`
 - `go-build (infra/standby-aks)`
 - `go-build (infra/shared)`
 - `go-build (infra/vpn-gateways)`
@@ -62,6 +63,7 @@ gh api repos/dakaii/metal-mirage/branches/main/protection/required_status_checks
   --method PATCH \
   -f strict=true \
   -f 'contexts[]=go-build (infra/primary)' \
+  -f 'contexts[]=go-build (infra/bare-metal)' \
   -f 'contexts[]=go-build (infra/standby-aks)' \
   -f 'contexts[]=go-build (infra/shared)' \
   -f 'contexts[]=go-build (infra/vpn-gateways)' \

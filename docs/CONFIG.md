@@ -32,6 +32,37 @@ pulumi config set primary:workerCount 1
 
 Secret outputs: `kubeconfig` (use `--show-secrets` only locally into `.secrets/`).
 
+## `infra/bare-metal` (namespace `baremetal`)
+
+Thin portable L1 provisioner for real hardware. Same output contract as `infra/primary`
+(`kubeconfig`, `apiLoadBalancerIP`, `ingressIP`, `clusterEndpoint`, `provisioner=bare-metal`).
+Switch via `config/clusters.yaml` (`provisioner: bare-metal`, `pulumi_dir: infra/bare-metal`).
+See [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md).
+
+| Key | Required | Default | Notes |
+|-----|----------|---------|-------|
+| `baremetal:nodes` | yes | — | JSON array: `[{"role":"controlplane","ip":"…"},{"role":"worker","ip":"…"}]` |
+| `baremetal:apiEndpointIP` | no | first controlplane IP | VIP or CP IP used in `clusterEndpoint` |
+| `baremetal:ingressIP` | no | `apiEndpointIP` | Traffic Manager / demo HTTP target |
+| `baremetal:clusterName` | no | `metal-mirage-primary` | Talos cluster name |
+| `baremetal:installDisk` | no | `/dev/sda` | Often `/dev/nvme0n1` on real metal |
+| `baremetal:dryRun` | no | `true` | `true` = offline: secrets + machine configs only; `false` = apply + bootstrap |
+
+```bash
+cd infra/bare-metal
+pulumi stack init dev
+pulumi config set baremetal:nodes '[{"role":"controlplane","ip":"192.168.1.10"},{"role":"worker","ip":"192.168.1.11"}]'
+pulumi config set baremetal:apiEndpointIP 192.168.1.10
+pulumi config set baremetal:ingressIP 192.168.1.10
+pulumi config set baremetal:installDisk /dev/nvme0n1
+pulumi config set baremetal:dryRun true    # offline demo
+# pulumi config set baremetal:dryRun false # live apply when nodes are in maintenance mode
+```
+
+Validate inventory without cloud/hardware: `./scripts/validate-inventory.sh`.
+
+Secret outputs: `kubeconfig` (empty in dryRun), `machineConfigs`.
+
 ## `infra/standby-aks` (namespace `standby`)
 
 | Key | Required | Default |

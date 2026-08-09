@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Destroy stacks to stop billing: primary | standby | shared | vpn | flux | all
+# primary/standby dirs come from config/clusters.yaml (provisioner switch).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib.sh
+source "${ROOT}/scripts/lib.sh"
 TARGET="${1:-all}"
 STACK="${PULUMI_STACK:-dev}"
 
@@ -24,15 +27,23 @@ destroy_one() {
       return 0
     fi
     if ! pulumi destroy --yes; then
-      echo "error: destroy failed for ${dir} — fix Azure/Pulumi state before retrying" >&2
+      echo "error: destroy failed for ${dir} — fix cloud/Pulumi state before retrying" >&2
       return 1
     fi
   )
 }
 
+primary_dir() {
+  resolve_pulumi_dir primary
+}
+
+standby_dir() {
+  resolve_pulumi_dir standby
+}
+
 case "${TARGET}" in
-  primary)  destroy_one infra/primary ;;
-  standby)  destroy_one infra/standby-aks ;;
+  primary)  destroy_one "$(primary_dir)" ;;
+  standby)  destroy_one "$(standby_dir)" ;;
   shared)   destroy_one infra/shared ;;
   vpn)      destroy_one infra/vpn-gateways ;;
   flux)     destroy_one infra/flux-bootstrap ;;
@@ -42,8 +53,15 @@ case "${TARGET}" in
     destroy_one infra/vpn-gateways
     destroy_one infra/shared
     destroy_one infra/flux-bootstrap || true
-    destroy_one infra/standby-aks
-    destroy_one infra/primary
+    destroy_one "$(standby_dir)"
+    destroy_one "$(primary_dir)"
+    # If switching provisioners, also try the sibling primary stack so leftover
+    # Azure metal-sim spend is not stranded when clusters.yaml already points at bare-metal.
+    if [[ "$(primary_dir)" == "infra/bare-metal" ]]; then
+      destroy_one infra/primary || true
+    elif [[ "$(primary_dir)" == "infra/primary" ]]; then
+      destroy_one infra/bare-metal || true
+    fi
     ;;
   *)
     echo "usage: $0 primary|standby|shared|vpn|flux|all" >&2

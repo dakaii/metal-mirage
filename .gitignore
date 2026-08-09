@@ -39,6 +39,7 @@ infra/*/infra-*
 # Ensure stack binaries stay local
 infra/flux-bootstrap/infra-flux
 infra/primary/infra-primary
+infra/bare-metal/infra-bare-metal
 infra/shared/infra-shared
 infra/standby-aks/infra-standby-aks
 infra/vpn-gateways/infra-vpn

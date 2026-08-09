@@ -95,16 +95,18 @@ VPN still uses cloud-init on Ubuntu because WireGuard city exits are ordinary Li
 - Machine config patch sets `machine.install.disk` (default `/dev/sda` for Azure Gen2 metal-sim; override with `primary:installDisk`).
 - Exports follow the portable contract: `kubeconfig` (secret), `apiLoadBalancerIP` / ingress IP, `clusterEndpoint`, `provisioner`.
 
-**Later (`provisioner: bare-metal`):**
+**Bare metal (`provisioner: bare-metal` → `infra/bare-metal`):**
 
-1. Install Talos on hardware (ISO / PXE / Omni).
-2. Point `config/clusters.yaml` at node IPs; reuse the same machine-secrets pattern.
-3. Retarget Traffic Manager primary endpoint to the metal ingress IP.
-4. `./scripts/destroy.sh primary` to drop Azure metal-sim spend.
+1. Install Talos on hardware (ISO / PXE / Omni) so nodes are in maintenance mode.
+2. Set `config/clusters.yaml` to `provisioner: bare-metal`, `pulumi_dir: infra/bare-metal`, and a `nodes:` inventory (see `config/clusters.bare-metal.example.yaml`).
+3. `./scripts/validate-inventory.sh` checks the contract offline (no Azure / no hardware).
+4. Thin Pulumi stack generates the same Talos machine-secrets pattern; default `baremetal:dryRun true` demos offline (exports portable outputs + machine configs without contacting nodes). Set `dryRun false` to apply + bootstrap.
+5. Retarget Traffic Manager primary endpoint to the metal `ingressIP`.
+6. Destroy Azure metal-sim spend via `./scripts/destroy.sh` (sibling primary stack cleanup supported).
 
 Unchanged: Flux manifests, demo app, monitoring rules, VPN city stack (unless you also move exits off Azure).
 
-See [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) for the output contract and hybrid matrix.
+See [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) for the output contract, inventory fields, and hybrid matrix.
 
 ## VPN vs platform split
 

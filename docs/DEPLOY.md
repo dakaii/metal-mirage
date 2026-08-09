@@ -38,6 +38,21 @@ kubectl get nodes
 
 Primary exposes the demo via an Azure Load Balancer on the `ingressIP` → NodePort `30080` (no cloud-controller / Traefik required for the portfolio path).
 
+### 2b. Alternate primary: bare metal (portable L1)
+
+`./scripts/up.sh primary` follows `config/clusters.yaml` → `primary.pulumi_dir`.
+To switch off Azure metal-sim without rewriting GitOps:
+
+```bash
+# 1. Point inventory at hardware (see config/clusters.bare-metal.example.yaml)
+# 2. Offline contract check (no Azure / no nodes required):
+./scripts/validate-inventory.sh
+# 3. Configure infra/bare-metal (dryRun=true by default) — docs/CONFIG.md + PORTABLE-ARCHITECTURE.md
+./scripts/up.sh primary
+```
+
+Live apply: install Talos to maintenance mode, set `baremetal:dryRun false`, re-run `up.sh primary`.
+
 ## 3. Flux GitOps
 
 ```bash
