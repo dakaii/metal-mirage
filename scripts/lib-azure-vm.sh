@@ -87,10 +87,14 @@ sys.exit(1)
 ' "${cores}" "${fam_json}"
 }
 
-# Returns 0 if SKU is missing or restricted for this subscription in the location.
+# Returns 0 only if the SKU is location-wide unavailable for this subscription.
+# Zone restrictions are ignored: non-zonal creates still work when some AZs are
+# restricted. Empty/unknown list-skus must not false-block (that previously
+# skipped Standard_D2s_v4 after a successful helper-VM create).
 azure_vm_sku_blocked() {
   local location="$1" size="$2"
   local raw
+  # --size keeps the query small (full catalog per candidate is very slow).
   raw="$(az vm list-skus \
     --location "${location}" \
     --size "${size}" \
@@ -101,15 +105,14 @@ azure_vm_sku_blocked() {
 import json, sys
 data = json.load(sys.stdin)
 if not data:
-    sys.exit(0)  # unknown / not offered → treat as blocked
+    sys.exit(1)  # unknown → do not block; quota gate + create fallback decide
 sku = data[0] if isinstance(data, list) else data
-restrictions = sku.get("restrictions") or []
-for r in restrictions:
-    reason = r.get("reasonCode") or ""
-    rtype = r.get("type") or ""
-    if reason == "NotAvailableForSubscription":
-        sys.exit(0)
-    if rtype == "Location" and reason:
+for r in sku.get("restrictions") or []:
+    reason = (r.get("reasonCode") or "")
+    rtype = (r.get("type") or "")
+    # Location-wide NotAvailableForSubscription is a hard no.
+    # Zone restrictions often list a subset of AZs and are not fatal.
+    if rtype == "Location" and reason == "NotAvailableForSubscription":
         sys.exit(0)
 sys.exit(1)  # not blocked
 '
@@ -152,7 +155,7 @@ pick_azure_vm_size() {
       continue
     fi
     if azure_vm_sku_blocked "${location}" "${size}"; then
-      echo "    skip ${size}: SKU missing/restricted in ${location}" >&2
+      echo "    skip ${size}: location-wide SKU restriction in ${location}" >&2
       continue
     fi
     printf '%s\n' "${size}"
