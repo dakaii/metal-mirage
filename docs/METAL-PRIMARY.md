@@ -69,8 +69,8 @@ Full BMC/Redfish automation is **not** in OSS (`lifecycle.provider: noop`).
 3. Confirm the operator machine can reach each inventory IP (firewall / VLAN).
 4. Confirm `install_disk` in `clusters.yaml` matches the real target disk
    (`/dev/sda` vs `/dev/nvme0n1`, etc.).
-5. Map exported `controlplane-N.yaml` / `worker-N.yaml` → node IPs
-   (see `.secrets/bare-metal-configs/INVENTORY.txt`).
+5. Map exported `controlplane-N.yaml` / `worker-N.yaml` → node IPs via
+   `INVENTORY.txt` lines like `worker-1=192.168.1.11` (inventory **index**, not per-role counter).
 
 ### Live apply
 
@@ -173,6 +173,6 @@ Copy [config/clusters.azure-metal-sim.example.yaml](../config/clusters.azure-met
 |-----|------|
 | [INSTALL-TALOS.md](INSTALL-TALOS.md) | ISO fetch / lab PXE / Lifecycle |
 | [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) | L1 output contract |
-| [CAPABILITY-PORTS.md](CAPABILITY-PORTS.md) | Compute / RemoteAccess ports |
+| [CAPABILITY-PORTS.md](CAPABILITY-PORTS.md) | Compute / RemoteAccess / Lifecycle ports |
 | [DEPLOY.md](DEPLOY.md) | Full multi-stack bring-up |
 | [COST.md](COST.md) | Idle cloud billing |

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Offline validation of the portable L1 inventory contract (no Azure / no hardware).
+# Offline validation of the portable L1 inventory + capability-port contracts
+# (no Azure / no hardware).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib.sh
@@ -7,7 +8,12 @@ source "${ROOT}/scripts/lib.sh"
 
 need go "Need Go 1.26.x (matches CI / infra go.mod)."
 
-echo "==> validate config/clusters.yaml capability ports (remote_access)"
+CLUSTERS="${ROOT}/config/clusters.yaml"
+
+echo "==> validate capability ports (remote_access + lifecycle) via LoadClustersCapabilities"
+go -C "${ROOT}/pkg/ports" run ./cmd/validate-clusters "${CLUSTERS}"
+
+echo "==> unit tests: pkg/ports"
 (
   cd "${ROOT}/pkg/ports"
   go test ./...

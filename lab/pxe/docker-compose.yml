@@ -1,4 +1,5 @@
 # Lab-only dnsmasq. Requires host networking + an isolated NIC.
+# Edit dnsmasq.conf.example (or mount your own conf) — compose does not expand env vars.
 # Usage: see lab/pxe/README.md
 services:
   dnsmasq:
@@ -7,7 +8,7 @@ services:
     cap_add:
       - NET_ADMIN
     volumes:
+      # Prefer mounting an edited copy, e.g. ./dnsmasq.conf:/etc/dnsmasq.conf:ro
       - ./dnsmasq.conf.example:/etc/dnsmasq.conf:ro
-    # Mount a host tftpboot dir if you serve undionly.kpxe:
-    # - /var/lib/tftpboot:/tftpboot:ro
+      # Optional: - /var/lib/tftpboot:/tftpboot:ro
     restart: "no"

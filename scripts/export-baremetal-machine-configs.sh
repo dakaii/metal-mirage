@@ -17,7 +17,6 @@ need pulumi "Install: https://www.pulumi.com/docs/install/"
 need python3 "Need python3 to unpack machineConfigs JSON."
 
 stack_out() {
-  # stack_out <output> [--json] — best-effort; empty string if missing
   local args=("$@")
   (
     cd "${ROOT}/${DIR}"
@@ -48,8 +47,13 @@ if [[ -z "${RAW}" || "${RAW}" == "null" ]]; then
   exit 1
 fi
 
+# baremetal:nodes JSON — same order as machineConfigs keys (role-index).
+NODES_JSON="$(
+  cd "${ROOT}/${DIR}"
+  pulumi config get baremetal:nodes 2>/dev/null || true
+)"
+
 mkdir -p "${OUT_DIR}"
-# Wipe previous export files (keep directory); avoid stale role files after inventory edits.
 find "${OUT_DIR}" -maxdepth 1 -type f \( -name '*.yaml' -o -name 'INVENTORY.txt' -o -name 'APPLY.md' \) -delete
 
 printf '%s' "${RAW}" | python3 -c '
@@ -79,20 +83,43 @@ for name, body in sorted(data.items()):
   echo "ingressIP=$(stack_out ingressIP)"
   echo "installDisk=$(stack_out installDisk)"
   echo "dryRun=$(stack_out dryRun)"
-  echo "controlPlaneIPs=$(stack_out controlPlaneIPs --json)"
-  echo "workerIPs=$(stack_out workerIPs --json)"
+  echo "# file → IP (keys match machineConfigs / primary.nodes inventory index)"
+  if [[ -n "${NODES_JSON}" && "${NODES_JSON}" != "null" ]]; then
+    printf '%s' "${NODES_JSON}" | python3 -c '
+import json, sys
+nodes = json.load(sys.stdin)
+if not isinstance(nodes, list):
+    sys.exit(0)
+for i, n in enumerate(nodes):
+    if not isinstance(n, dict):
+        continue
+    role = str(n.get("role", "")).strip()
+    ip = str(n.get("ip", "")).strip()
+    if role and ip:
+        print(f"{role}-{i}={ip}")
+'
+  else
+    echo "# (baremetal:nodes missing — falling back to role IP lists)"
+    echo "controlPlaneIPs=$(stack_out controlPlaneIPs --json)"
+    echo "workerIPs=$(stack_out workerIPs --json)"
+  fi
 } >"${OUT_DIR}/INVENTORY.txt"
 
 cat >"${OUT_DIR}/APPLY.md" <<'EOF'
 # Apply machine configs (maintenance mode)
 
-ISO / PXE / Omni install is **outside** this repo. Nodes must reach Talos
-**maintenance mode** (apid on :50000) before apply.
+Fetch/flash an installer with `./scripts/fetch-talos-installer.sh` (or lab PXE —
+see `docs/INSTALL-TALOS.md`). Nodes must reach Talos **maintenance mode**
+(apid on :50000) before apply. BMC/Redfish is not automated in OSS.
 
 ## Map files → nodes
 
-Match `controlplane-N.yaml` / `worker-N.yaml` to IPs in `INVENTORY.txt`
-(same order as `primary.nodes` in `config/clusters.yaml`).
+`INVENTORY.txt` lists `controlplane-N=<ip>` / `worker-N=<ip>` using the **same
+inventory index** as Pulumi `machineConfigs` keys (role + index in
+`primary.nodes`, not a per-role counter).
+
+Example: if `nodes[0]` is CP and `nodes[1]` is worker, files are
+`controlplane-0.yaml` and `worker-1.yaml`.
 
 ## Option A — let Pulumi apply (recommended)
 
@@ -105,12 +132,10 @@ After every node is in maintenance mode:
 
 ## Option B — manual `talosctl` (USB / air-gap)
 
-From a machine that can reach node IPs:
-
 ```bash
 # First apply is insecure (no client certs yet):
-talosctl apply-config --insecure --nodes <CP_IP> --file controlplane-0.yaml
-talosctl apply-config --insecure --nodes <WORKER_IP> --file worker-1.yaml
+talosctl apply-config --insecure --nodes <IP> --file controlplane-0.yaml
+talosctl apply-config --insecure --nodes <IP> --file worker-1.yaml
 # Then either bootstrap with talosctl, or set dry_run: false and let Pulumi
 # ConfigurationApply + Bootstrap finish (idempotent enough for lab use).
 ```
@@ -124,4 +149,4 @@ echo
 echo "Next: boot Talos to maintenance mode, then either:"
 echo "  A) set dry_run: false → ./scripts/up.sh primary"
 echo "  B) talosctl apply-config --insecure … (see ${OUT_DIR}/APPLY.md)"
-echo "Docs: docs/METAL-PRIMARY.md"
+echo "Docs: docs/METAL-PRIMARY.md · docs/INSTALL-TALOS.md"

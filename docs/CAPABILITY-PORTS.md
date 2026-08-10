@@ -57,7 +57,7 @@ the adapter directory via `require_remote_access_dir` in `scripts/lib.sh` (same
 - Names the seams so VPN is clearly an **adapter**
 - Lets you disable RemoteAccess without deleting code
 - Keeps Compute provisioner switching (already portable)
-- Documents Lifecycle / Observability as future ports
+- Ships Lifecycle as `noop` (+ optional `nodes[].bmc` metadata); Redfish stays out-of-tree
 - Leaves room for a **separate commercial repo** to add billing, BMC, other remote-access plugins without rewriting GitOps
 
 ## What is **not** possible (in this OSS repo / with this change alone)

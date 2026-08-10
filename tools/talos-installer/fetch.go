@@ -190,8 +190,9 @@ Flash (pick one), then boot the node into Talos maintenance mode (apid :50000):
   # Or use Ventoy / balenaEtcher / Rufus with the ISO.
 
 Next:
-  ./scripts/export-baremetal-machine-configs.sh   # after dry-run up (PR/metal P1)
-  # or set dry_run: false and ./scripts/up.sh primary once nodes are in maintenance
+  ./scripts/up.sh primary                         # dry_run ok first
+  ./scripts/export-baremetal-machine-configs.sh   # optional USB / talosctl files
+  # set dry_run: false and ./scripts/up.sh primary once nodes are in maintenance
 See docs/INSTALL-TALOS.md
 `, isoPath, isoPath)
 }

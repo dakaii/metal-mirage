@@ -24,8 +24,8 @@ without rewriting GitOps.
 # Flash USB (dd / Ventoy / Etcher) — instructions printed by the tool
 # Boot each node → maintenance mode (apid :50000)
 ./scripts/up.sh primary                         # dry_run true first is fine
-# Export configs when available, then:
-#   set dry_run: false → ./scripts/up.sh primary
+./scripts/export-baremetal-machine-configs.sh   # optional USB / talosctl files
+# set dry_run: false → ./scripts/up.sh primary
 ```
 
 Other assets:
