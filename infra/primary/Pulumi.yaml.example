@@ -11,4 +11,5 @@ description: Talos primary cluster on Azure VMs (bare-metal simulation)
 #   pulumi config set primary:adminCidr "$(curl -fsSL ifconfig.me)/32"
 #   pulumi config set primary:controlPlaneCount 1
 #   pulumi config set primary:workerCount 1
+#   pulumi config set primary:talosVersion v1.9.5   # must match gallery VHD
 # vmSize is auto-selected by ./scripts/up.sh primary (quota/SKU probe).

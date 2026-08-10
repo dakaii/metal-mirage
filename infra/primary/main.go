@@ -32,6 +32,10 @@ func main() {
 		cpCount := cfgGetInt(cfg, "controlPlaneCount", 1)
 		workerCount := cfgGetInt(cfg, "workerCount", 1)
 		vmSize := cfgGet(cfg, "vmSize", "Standard_B2s")
+		// Must match the gallery VHD (register-talos-image default). pulumi-talos
+		// otherwise emits newer schema keys (e.g. grubUseUKICmdline from v1.12)
+		// that v1.9.x nodes reject during ConfigurationApply.
+		talosVersion := cfgGet(cfg, "talosVersion", "v1.9.5")
 		// Azure Gen2 Talos VHD typically presents the OS disk as /dev/sda.
 		installDisk := cfgGet(cfg, "installDisk", "/dev/sda")
 		// Lock Talos/k8s API planes; leave HTTP/demo open for Traffic Manager probes.
@@ -165,7 +169,9 @@ func main() {
 			return err
 		}
 
-		secrets, err := machine.NewSecrets(ctx, "talos-secrets", nil)
+		secrets, err := machine.NewSecrets(ctx, "talos-secrets", &machine.SecretsArgs{
+			TalosVersion: pulumi.String(talosVersion),
+		})
 		if err != nil {
 			return err
 		}
@@ -247,6 +253,7 @@ func main() {
 				ClusterEndpoint: clusterEndpoint,
 				MachineSecrets:  secrets.MachineSecrets,
 				ConfigPatches:   diskPatches,
+				TalosVersion:    pulumi.String(talosVersion),
 				Docs:            pulumi.Bool(false),
 				Examples:        pulumi.Bool(false),
 			})
@@ -326,6 +333,7 @@ func main() {
 				ClusterEndpoint: clusterEndpoint,
 				MachineSecrets:  secrets.MachineSecrets,
 				ConfigPatches:   diskPatches,
+				TalosVersion:    pulumi.String(talosVersion),
 				Docs:            pulumi.Bool(false),
 				Examples:        pulumi.Bool(false),
 			})
@@ -365,6 +373,7 @@ func main() {
 		ctx.Export("ingressLoadBalancer", ingressLB.Name)
 		ctx.Export("demoNodePort", pulumi.Int(demoNodePort))
 		ctx.Export("installDisk", pulumi.String(installDisk))
+		ctx.Export("talosVersion", pulumi.String(talosVersion))
 		ctx.Export("controlPlanePublicIPs", pulumi.StringArray(cpIPsToArray(cpIPs)))
 		ctx.Export("workerPublicIPs", pulumi.StringArray(cpIPsToArray(workerIPs)))
 		ctx.Export("clusterEndpoint", clusterEndpoint)

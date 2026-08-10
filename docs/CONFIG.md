@@ -14,6 +14,7 @@ Use `--secret` for anything that grants cluster or cloud access (kubeconfig, tok
 | `primary:controlPlaneCount` | no | `1` | Demo-friendly |
 | `primary:workerCount` | no | `1` | |
 | `primary:vmSize` | no | auto via `up.sh` (else `Standard_B2s`) | Azure metal-sim: `./scripts/up.sh primary` probes quota/SKU; override `PRIMARY_VM_SIZE` |
+| `primary:talosVersion` | no | `v1.9.5` | Must match gallery VHD / `register-talos-image`; pins pulumi-talos schema (avoids unknown keys like `grubUseUKICmdline`) |
 | `primary:installDisk` | no | `/dev/sda` | Talos `machine.install.disk` patch; Azure Gen2 metal-sim default |
 | `primary:adminCidr` | no | `0.0.0.0/0` | Source for Talos APIs + etcd; lock to your `/32` in real use |
 | `azure-native:location` | recommended | | Also set for the provider |
