@@ -6,6 +6,8 @@ This repo is an **Infrastructure-as-Code / GitOps** project (Pulumi Go + Talos o
 
 **`scripts/*.sh` are operator runbooks** (run locally against Azure/Pulumi/VPN VMs). They are **not** GitHub Actions. CI lives in `.github/workflows/ci.yml` and only *checks* those scripts (shellcheck, inventory validation). Bring-up docs: `README.md`, `docs/DEPLOY.md`.
 
+Auth: `./scripts/login.sh` (Azure + Pulumi; `--status`, `--local-pulumi`, optional `--control-plane` / `--clerk-keyless`).
+
 ### Toolchain (already provisioned in the VM image)
 - **Go 1.26.5** is required — `infra/*` modules pin `go 1.26.5` (control-plane pins `go 1.25.0`) and the base image's Go 1.22 will not build them. Installed at `/usr/local/go` (symlinked into `/usr/local/bin`).
 - **Pulumi** (`/usr/local/bin/pulumi`) and **kustomize v5.4.3** (`/usr/local/bin/kustomize`) are installed.

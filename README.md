@@ -49,9 +49,10 @@ Only Layer 1 changes when you move from Azure VMs to real hardware. Talos machin
 ## Quick start
 
 ```bash
-# Prerequisites: Azure CLI logged in, Pulumi, Go 1.26.x, azcopy (for Talos image once)
-az login
-pulumi login   # or pulumi login --local
+# Prerequisites: Azure CLI, Pulumi, Go 1.26.x, azcopy (for Talos image once)
+./scripts/login.sh                 # az + pulumi (browser/device-code if needed)
+# ./scripts/login.sh --local-pulumi
+# ./scripts/login.sh --control-plane   # optional Clerk+Neon .env check
 
 # 1. Register a Talos Azure image (one-time per subscription/region)
 ./scripts/register-talos-image.sh eastus
