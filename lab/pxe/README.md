@@ -9,15 +9,18 @@ Prefer [Image Factory PXE](https://factory.talos.dev) or Omni when you outgrow U
 
 - Needs a dedicated lab VLAN / DHCP you control (host networking).
 - Easy to break your home LAN DHCP — use an isolated switch/VLAN.
+- You must **edit** `dnsmasq.conf.example` (or your own conf). Compose does **not**
+  read `PXE_*` environment variables.
+- `undionly.kpxe` / iPXE firmware under TFTP is **not** shipped — provide your own
+  or use machines that already speak iPXE HTTP.
 - No BMC power/boot control here (Lifecycle stays `noop` in OSS — see
   [INSTALL-TALOS.md](../../docs/INSTALL-TALOS.md)).
 
 ## 1. Fetch kernel + initramfs + iPXE script
 
 ```bash
-# Replace PXE_HOST with the IP of the machine that will serve files.
-HTTP_BASE=http://192.168.10.2:8080 ./scripts/fetch-talos-installer.sh pxe-set
-# Assets land in .secrets/talos-installer/ (gitignored)
+# Replace the host with the IP that will serve .secrets/talos-installer/
+./scripts/fetch-talos-installer.sh pxe-set --http-base http://192.168.10.2:8080
 ```
 
 ## 2. Serve the asset directory
@@ -29,41 +32,35 @@ python3 -m http.server 8080
 
 Confirm `curl -fsS http://192.168.10.2:8080/boot.ipxe` returns the script.
 
-## 3. DHCP + proxyDHCP (dnsmasq example)
+## 3. DHCP (dnsmasq)
 
-Copy and edit [`dnsmasq.conf.example`](dnsmasq.conf.example), then either:
+1. Copy [`dnsmasq.conf.example`](dnsmasq.conf.example) → e.g. `dnsmasq.conf`.
+2. Edit **interface**, **dhcp-range**, **router**, and the `http://…/boot.ipxe` URL
+   to match your lab VLAN and HTTP server.
+3. Place `undionly.kpxe` (or your iPXE build) in a TFTP root if clients need it.
+4. Run dnsmasq on the host with that config, **or**:
 
 ```bash
-# From repo root — requires Docker host networking + an isolated NIC/VLAN.
-export PXE_INTERFACE=eth1          # lab NIC
-export PXE_ROUTER=192.168.10.1
-export PXE_RANGE_START=192.168.10.50
-export PXE_RANGE_END=192.168.10.100
-export PXE_HTTP=http://192.168.10.2:8080
+# Host networking + isolated NIC. Mount *your* edited conf + optional tftpboot.
 docker compose -f lab/pxe/docker-compose.yml up
+# Default compose mounts dnsmasq.conf.example — replace the volume with your edited file.
 ```
-
-Or run dnsmasq on the host with the example config. Point iPXE/`dhcp-boot` at
-`${PXE_HTTP}/boot.ipxe`.
 
 ## 4. Boot node → maintenance → apply
 
 When the node reaches Talos maintenance (apid `:50000`):
 
 ```bash
-# Preferred: Pulumi apply
-#   set dry_run: false in config/clusters.yaml
-./scripts/up.sh primary
+./scripts/up.sh primary   # after dry_run: false in clusters.yaml
+# Optional USB/talosctl path:
+./scripts/export-baremetal-machine-configs.sh
 ```
-
-Or manual `talosctl apply-config --insecure` using exported machine configs
-(`./scripts/export-baremetal-machine-configs.sh` when available on your branch).
 
 ## Alternatives
 
 | Approach | When |
 |----------|------|
 | USB ISO (`./scripts/fetch-talos-installer.sh iso`) | Few nodes, simplest |
-| factory.talos.dev PXE URL | Want Sidero-hosted iPXE without local file serve |
+| factory.talos.dev PXE URL | Sidero-hosted iPXE without local file serve |
 | Omni | Managed machine enrollment |
-| Commercial Lifecycle / Redfish | Lights-out rack ops (out of this OSS repo) |
+| Out-of-tree Redfish / Lifecycle adapter | Lights-out rack ops |

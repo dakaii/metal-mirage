@@ -5,8 +5,9 @@
 #   ./scripts/fetch-talos-installer.sh              # metal ISO (default)
 #   ./scripts/fetch-talos-installer.sh pxe-set       # kernel+initramfs + boot.ipxe
 #   ./scripts/fetch-talos-installer.sh iso --version v1.9.5 --arch amd64
+#   ./scripts/fetch-talos-installer.sh pxe-set --http-base http://192.168.10.2:8080
 #
-# Env: TALOS_VERSION, TALOS_ARCH, OUT_DIR, HTTP_BASE (for iPXE)
+# Env: TALOS_VERSION, TALOS_ARCH, OUT_DIR, HTTP_BASE (for iPXE; CLI --http-base wins)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib.sh
@@ -25,29 +26,45 @@ VERSION="${TALOS_VERSION:-v1.9.5}"
 ARCH="${TALOS_ARCH:-amd64}"
 OUT_DIR="${OUT_DIR:-${ROOT}/.secrets/talos-installer}"
 HTTP_BASE="${HTTP_BASE:-http://PXE_HOST:8080}"
+WRITE_IPXE=0
 
-args=(-version "${VERSION}" -arch "${ARCH}" -asset "${ASSET}" -out "${OUT_DIR}")
-# Extra CLI flags after asset name, e.g. --write-ipxe via passthrough as -write-ipxe
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --version)
-      args+=(-version "$2"); shift 2 || exit 1
+      VERSION="$2"
+      shift 2 || exit 1
       ;;
     --arch)
-      args+=(-arch "$2"); shift 2 || exit 1
+      ARCH="$2"
+      shift 2 || exit 1
       ;;
     --out)
-      args+=(-out "$2"); shift 2 || exit 1
+      OUT_DIR="$2"
+      shift 2 || exit 1
       ;;
     --write-ipxe)
-      args+=(-write-ipxe); shift
+      WRITE_IPXE=1
+      shift
       ;;
     --http-base)
-      args+=(-http-base "$2"); shift 2 || exit 1
+      HTTP_BASE="$2"
+      shift 2 || exit 1
       ;;
-    -*)
-      # allow raw Go flags
-      args+=("$1"); shift
+    -version | -arch | -out | -http-base)
+      # raw Go-style flags
+      key="$1"
+      val="$2"
+      shift 2 || exit 1
+      case "${key}" in
+        -version) VERSION="${val}" ;;
+        -arch) ARCH="${val}" ;;
+        -out) OUT_DIR="${val}" ;;
+        -http-base) HTTP_BASE="${val}" ;;
+      esac
+      ;;
+    -write-ipxe)
+      WRITE_IPXE=1
+      shift
       ;;
     *)
       echo "unexpected arg: $1" >&2
@@ -56,9 +73,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Always pass http-base for pxe-set / write-ipxe convenience
-if [[ "${ASSET}" == "pxe-set" ]]; then
+args=(-version "${VERSION}" -arch "${ARCH}" -asset "${ASSET}" -out "${OUT_DIR}")
+if [[ "${ASSET}" == "pxe-set" || "${WRITE_IPXE}" -eq 1 ]]; then
   args+=(-http-base "${HTTP_BASE}")
+fi
+if [[ "${WRITE_IPXE}" -eq 1 && "${ASSET}" != "pxe-set" ]]; then
+  args+=(-write-ipxe)
 fi
 
 echo "==> go run (tools/talos-installer) ${args[*]}"

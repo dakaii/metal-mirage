@@ -1,11 +1,13 @@
 # Example dnsmasq for an *isolated* lab VLAN. Do NOT point this at your main LAN
 # DHCP without knowing what you are doing.
 #
+# Copy → dnsmasq.conf and edit by hand (docker compose does not expand env vars).
 # Replace:
 #   interface=          lab NIC
 #   dhcp-range=         lab subnet
 #   dhcp-option=option:router
-#   PXE HTTP host that serves .secrets/talos-installer/
+#   http://…/boot.ipxe  host that serves .secrets/talos-installer/
+# Provide undionly.kpxe (or equivalent) in tftp-root yourself.
 
 interface=eth1
 bind-interfaces

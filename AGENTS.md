@@ -17,12 +17,12 @@ Auth: `./scripts/login.sh` (Azure + Pulumi; `--status`, `--local-pulumi`, option
 - Default `config/clusters.yaml` is **bare-metal** + `remote_access.provider: none` (metal-first). Golden path: `docs/METAL-PRIMARY.md`.
 - `primary.pulumi_dir` selects `infra/bare-metal` (preferred) or `infra/primary` (azure-metal-sim lab).
 - Bare-metal inventory SoT is `primary.nodes` in `clusters.yaml`; `./scripts/sync-baremetal-config.sh` (also via `./scripts/up.sh primary`) writes `baremetal:*` Pulumi keys — do not dual-maintain.
-- After dry-run `up`, `./scripts/export-baremetal-machine-configs.sh` dumps `machineConfigs` to `.secrets/bare-metal-configs/` for USB/`talosctl apply-config --insecure`. ISO/PXE install stays outside the repo.
+- After dry-run `up`, `./scripts/export-baremetal-machine-configs.sh` dumps `machineConfigs` to `.secrets/bare-metal-configs/` for USB/`talosctl apply-config --insecure`.
+- Talos install helpers: `./scripts/fetch-talos-installer.sh` (checksummed ISO via `tools/talos-installer`); optional lab PXE under `lab/pxe/` (edit dnsmasq conf — no env magic). BMC/Redfish stays `lifecycle.provider: noop` in OSS (`docs/INSTALL-TALOS.md`).
 - Optional MetalLB demo Service: `gitops/apps/demo-loadbalancer` (default Flux stays NodePort).
 - `remote_access.provider` (`none` default \| `wireguard`) selects the optional RemoteAccess adapter (`docs/CAPABILITY-PORTS.md`).
 - `./scripts/up.sh primary` / `./scripts/destroy.sh primary` resolve that path via `scripts/lib.sh`.
-- Offline inventory + ports check (no Azure/hardware): `./scripts/validate-inventory.sh`.
-- Talos install helpers: `go -C tools/talos-installer` / `./scripts/fetch-talos-installer.sh` (checksummed ISO); lab PXE under `lab/pxe/`; Lifecycle stays `noop` in OSS (`docs/INSTALL-TALOS.md`).
+- Offline inventory + ports check (no Azure/hardware): `./scripts/validate-inventory.sh` (explicit `LoadClustersCapabilities` + Go tests).
 - Examples: `config/clusters.bare-metal.example.yaml`, `config/clusters.azure-metal-sim.example.yaml`.
 
 ### CI-equivalent checks (see `.github/workflows/ci.yml` and `CONTRIBUTING.md`)
