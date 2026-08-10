@@ -33,9 +33,12 @@ Downloads `azure-amd64.vhd.xz` from [Talos Image Factory](https://factory.talos.
 (GitHub Releases no longer ship Azure VHDs). Override schematic with
 `TALOS_SCHEMATIC_ID` or full URL with `TALOS_IMAGE_URL`.
 
+Prefer `--in-azure` on a laptop: a short-lived helper VM downloads/decompresses/uploads
+the VHD (no multi-GB copy under `.secrets/`). Default mode still downloads locally.
+
 ```bash
-./scripts/register-talos-image.sh eastus
-# optional: ./scripts/register-talos-image.sh eastus v1.9.5
+./scripts/register-talos-image.sh --in-azure eastus
+# or local download+upload: ./scripts/register-talos-image.sh eastus
 cd infra/primary
 pulumi stack init dev
 pulumi config set azure-native:location eastus

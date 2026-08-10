@@ -240,7 +240,7 @@ if [[ "${DO_AZURE}" -eq 0 && "${DO_PULUMI}" -eq 0 && "${CHECK_CP}" -eq 0 && "${C
 fi
 
 if [[ "${rc}" -eq 0 ]]; then
-  info "Ready. Next: ./scripts/register-talos-image.sh eastus   # or ./scripts/up.sh primary"
+  info "Ready. Next: ./scripts/register-talos-image.sh --in-azure eastus   # or ./scripts/up.sh primary"
 else
   info "One or more checks failed (see !! above)."
 fi
