@@ -5,6 +5,7 @@ Standard WireGuard profiles for **your** devices — not a multi-tenant commerci
 Compatible with any client that imports stock WireGuard `.conf` (official apps, Shadowrocket, and similar).
 Not on the HTTP/demo path (Azure LB → NodePort). Legality / intended use: [LEGAL.md](LEGAL.md).
 Client profile architecture: [CLIENT-PROFILES.md](CLIENT-PROFILES.md).
+Capability ports (VPN as optional adapter): [CAPABILITY-PORTS.md](CAPABILITY-PORTS.md).
 
 ## Exit vs platform
 

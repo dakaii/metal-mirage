@@ -11,8 +11,9 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 | Pulumi Go stacks: `primary` (Talos metal-sim), `bare-metal` (thin L1), `standby-aks`, `shared` (Traffic Manager + witness), `vpn-gateways` | Ship / harden |
 | Scripts: `login`, `register-talos-image`, `up` / `destroy`, `validate-inventory`, `vpn-bootstrap`, `vpn-reconcile-peers`, `failover-promote`, `install-flux`, `deploy-witness` | Documented, runnable |
 | GitOps: Flux bootstrap path + demo app + monitoring scrape/alert hints | Kustomize-valid |
-| Docs: ARCHITECTURE, DEPLOY, VPN, CLIENT-PROFILES, COST, PORTABLE, CONFIG, BEST-PRACTICES, LEGAL, this ROADMAP | Honest personal/self-host framing |
+| Docs: ARCHITECTURE, DEPLOY, VPN, CLIENT-PROFILES, CAPABILITY-PORTS, COST, PORTABLE, CONFIG, BEST-PRACTICES, LEGAL, this ROADMAP | Honest personal/self-host framing |
 | Optional Phase 3 demo: Clerk + Neon peer registry + WireGuard profile exports in `control-plane/` | Minimal API only; clearly optional |
+| Capability ports: `pkg/ports` + `remote_access.provider` (`wireguard` \| `none`); WireGuard as RemoteAccess example | Ship / document limits |
 | CI: Go build/fmt/vet matrix (incl. `infra/bare-metal` + inventory tests) + kustomize + shellcheck + actionlint + gitleaks; PRs into `main` ([CONTRIBUTING.md](../CONTRIBUTING.md)) | Keep green; no Azure secrets in CI |
 | Portable L1 switch: `azure-metal-sim` → `infra/bare-metal` + inventory contract + dryRun offline demo | Done (live metal still needs hardware + `dryRun=false`) — [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) |
 
@@ -32,6 +33,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 - DR drill runbook: [DR.md](DR.md) (Traffic Manager `:80/healthz` vs witness `:6443/readyz`)
 - Optional peer reconciler: `./scripts/vpn-reconcile-peers.sh` (+ `control-plane/cmd/listpeers`) — DB → `wg set`, optional `--prune`
 - Pluggable client profiles: `control-plane/internal/tunnel` registry; WireGuard `wireguard-conf` exports; `GET /api/tunnel/protocols` — [CLIENT-PROFILES.md](CLIENT-PROFILES.md)
+- Capability ports overlay: `pkg/ports` + `remote_access` config; WireGuard demoted to RemoteAccess example; documented hard limits — [CAPABILITY-PORTS.md](CAPABILITY-PORTS.md)
 
 ## Later — commercial / out of this repo
 
@@ -54,3 +56,4 @@ The optional Clerk + Neon peer API in OSS is a **demo**, not a billing surface. 
 | Optional peer minting API (no billing) | App Store clients / proprietary branding |
 | Apache-2.0 personal/self-host platform ([LEGAL.md](LEGAL.md)) | “Commercial VPN product” / unblocker marketing claims |
 | WireGuard client-profile exports + protocol registry hook | Non-WG commercial protocol packs as a paid product |
+| Capability ports (`pkg/ports`) + `remote_access: none\|wireguard` | BMC/Lifecycle product, billing, multi-tenant control plane |

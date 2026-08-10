@@ -115,7 +115,19 @@ After a `FAILOVER_CANDIDATE` (or for Drill A), operators warm standby with:
 ./scripts/failover-promote.sh --failback
 ```
 
+## `config/clusters.yaml` — RemoteAccess port
+
+| Key | Values | Notes |
+|-----|--------|-------|
+| `remote_access.provider` | `wireguard` (default) \| `none` | `none` skips `./scripts/up.sh vpn` |
+| `remote_access.pulumi_dir` | e.g. `infra/vpn-gateways` | Adapter stack for `wireguard` |
+| `vpn.pulumi_dir` | legacy alias | Used if `remote_access.pulumi_dir` omitted |
+
+See [CAPABILITY-PORTS.md](CAPABILITY-PORTS.md). Offline check: `./scripts/validate-inventory.sh`.
+
 ## `infra/vpn-gateways` (namespace `vpn`)
+
+WireGuard **RemoteAccess** example adapter (only when `remote_access.provider=wireguard`).
 
 | Key | Required | Default |
 |-----|----------|---------|

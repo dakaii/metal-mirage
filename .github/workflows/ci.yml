@@ -25,6 +25,7 @@ jobs:
           - infra/vpn-gateways
           - infra/flux-bootstrap
           - control-plane
+          - pkg/ports
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -47,7 +48,7 @@ jobs:
           go vet ./...
           go build ./...
       - name: unit / contract tests
-        if: matrix.dir == 'infra/bare-metal' || matrix.dir == 'control-plane'
+        if: matrix.dir == 'infra/bare-metal' || matrix.dir == 'control-plane' || matrix.dir == 'pkg/ports'
         working-directory: ${{ matrix.dir }}
         run: go test ./...
 

@@ -1,6 +1,7 @@
 // Package tunnel defines pluggable client-profile protocols for the optional
-// peer portal. V1 ships WireGuard only; additional Protocol implementations can
-// register without changing the HTTP handlers.
+// peer portal. This is the profile/export half of the RemoteAccess capability
+// (see pkg/ports and docs/CAPABILITY-PORTS.md). V1 ships WireGuard only;
+// additional Protocol implementations can register without changing HTTP handlers.
 package tunnel
 
 import (

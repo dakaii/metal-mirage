@@ -8,6 +8,15 @@ source "${ROOT}/scripts/lib.sh"
 TARGET="${1:-primary}"
 STACK="${PULUMI_STACK:-dev}"
 
+# RemoteAccess disabled: allow a no-op without Pulumi installed.
+if [[ "${TARGET}" == "vpn" || "${TARGET}" == "remote_access" ]]; then
+  if [[ "$(remote_access_provider)" == "none" ]]; then
+    echo "==> remote_access.provider=none — skipping WireGuard adapter (RemoteAccess port disabled)"
+    echo "Done (${TARGET}). Platform-only mode; see docs/CAPABILITY-PORTS.md."
+    exit 0
+  fi
+fi
+
 need pulumi "Install: https://www.pulumi.com/docs/install/"
 need go "Need Go 1.26.x (matches CI / infra go.mod). See AGENTS.md."
 
@@ -71,6 +80,10 @@ wire_shared_from_outputs() {
   )
 }
 
+vpn_dir() {
+  resolve_pulumi_dir vpn
+}
+
 case "${TARGET}" in
   primary)
     up_one "$(primary_dir)"
@@ -82,20 +95,26 @@ case "${TARGET}" in
     wire_shared_from_outputs
     up_one infra/shared
     ;;
-  vpn)
-    up_one infra/vpn-gateways
+  vpn | remote_access)
+    # none already handled above (before need pulumi)
+    up_one "$(vpn_dir)"
     ;;
   all)
     up_one "$(primary_dir)"
     up_one "$(standby_dir)"
     wire_shared_from_outputs
     up_one infra/shared
-    up_one infra/vpn-gateways
+    if [[ "$(remote_access_provider)" == "none" ]]; then
+      echo "==> remote_access.provider=none — skipping WireGuard adapter"
+    else
+      up_one "$(vpn_dir)"
+    fi
     ;;
   *)
-    echo "usage: $0 primary|standby|shared|vpn|all" >&2
+    echo "usage: $0 primary|standby|shared|vpn|remote_access|all" >&2
     echo "env: PULUMI_STACK (default: dev)" >&2
     echo "primary dir follows config/clusters.yaml (azure-metal-sim → infra/primary, bare-metal → infra/bare-metal)" >&2
+    echo "remote_access.provider=wireguard|none selects the optional RemoteAccess adapter" >&2
     exit 1
     ;;
 esac

@@ -1,8 +1,13 @@
 # Client profiles (tunnel exports)
 
-Personal WireGuard exits mint **client profiles** — importable artifacts for apps on your devices. The optional control-plane exposes a small **protocol registry** so new export types can land later without rewriting the peer HTTP API.
+metal-mirage is evolving toward a **platform core with swappable adapters**.
+WireGuard city exits are **one RemoteAccess implementation example**, not the
+product identity. Client exports for that example use a small **protocol registry**
+so new export types can land later without rewriting the peer HTTP API.
 
-**Shipped today:** `wireguard` → `wireguard-conf` (standard INI `.conf`).
+**Shipped today:** RemoteAccess `wireguard` → export `wireguard-conf` (standard INI `.conf`).
+Disable the plane with `remote_access.provider: none` in `config/clusters.yaml`.
+Ports overview: [CAPABILITY-PORTS.md](CAPABILITY-PORTS.md).
 
 ## Why a registry
 
