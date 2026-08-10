@@ -51,8 +51,10 @@ Only Layer 1 changes when you move between metal and Azure lab VMs. Switch: [`co
 
 # Edit config/clusters.yaml IPs/disks for your hardware (default is dry_run: true)
 ./scripts/up.sh primary           # syncs inventory → Pulumi, then pulumi up
+./scripts/export-baremetal-machine-configs.sh   # USB / talosctl apply files
 
-# After Talos is in maintenance mode: set dry_run: false, up again, then:
+# Boot Talos to maintenance mode (ISO/PXE/Omni — outside repo), then:
+#   set dry_run: false → ./scripts/up.sh primary
 #   pulumi -C infra/bare-metal stack output kubeconfig --show-secrets > .secrets/primary.kubeconfig
 #   ./scripts/install-flux.sh primary
 # Details: docs/METAL-PRIMARY.md

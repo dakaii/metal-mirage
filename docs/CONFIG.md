@@ -62,6 +62,8 @@ Pulumi keys.
 Validate inventory without cloud/hardware: `./scripts/validate-inventory.sh`.
 
 Secret outputs: `kubeconfig` (empty in dryRun), `machineConfigs`.
+Dump configs for USB/`talosctl`: `./scripts/export-baremetal-machine-configs.sh`
+(after `./scripts/up.sh primary`).
 
 ## `infra/standby-aks` (namespace `standby`)
 

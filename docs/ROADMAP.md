@@ -32,6 +32,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 - Witness optional `failoverWebhookURL` — POST JSON once at threshold crossing (still no auto TM/scale inside the Function)
 - Contributor UX: clearer script errors (`lib.sh` helpers), bare-metal inventory SoT sync, Go 1.26 prereqs
 - Metal-first defaults: `primary.provisioner=bare-metal`, `remote_access.provider=none`, [METAL-PRIMARY.md](METAL-PRIMARY.md), optional MetalLB overlay
+- Metal P1 UX: `export-baremetal-machine-configs.sh`, maintenance checklist, optional `gitops/apps/demo-loadbalancer`
 - VPN observability: Helm scrape fragment + adminCidr caveat, Grafana dashboard polish, node_exporter disk/memory alerts (no WG exporter)
 - DR drill runbook: [DR.md](DR.md) (Traffic Manager `:80/healthz` vs witness `:6443/readyz`)
 - Optional peer reconciler: `./scripts/vpn-reconcile-peers.sh` (+ `control-plane/cmd/listpeers`) — DB → `wg set`, optional `--prune`

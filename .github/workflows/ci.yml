@@ -60,6 +60,7 @@ jobs:
         run: |
           curl -fsSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.3/kustomize_v5.4.3_linux_amd64.tar.gz" | tar xz
           ./kustomize build gitops/apps >/dev/null
+          ./kustomize build gitops/apps/demo-loadbalancer >/dev/null
           ./kustomize build gitops/infrastructure >/dev/null
           ./kustomize build gitops/infrastructure/monitoring >/dev/null
           ./kustomize build gitops/infrastructure/metallb >/dev/null
