@@ -61,10 +61,11 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
 fi
 export DATABASE_URL
 
-select_stack infra/vpn-gateways
-PUBLIC_IP="$(require_stack_output infra/vpn-gateways publicIP "run ./scripts/up.sh vpn first")"
-SSH_USER="$(require_stack_output infra/vpn-gateways sshUser "run ./scripts/up.sh vpn first")"
-CITY="$(require_stack_output infra/vpn-gateways city "run ./scripts/up.sh vpn first")"
+VPN_DIR="$(require_remote_access_dir)"
+select_stack "${VPN_DIR}"
+PUBLIC_IP="$(require_stack_output "${VPN_DIR}" publicIP "run ./scripts/up.sh vpn first")"
+SSH_USER="$(require_stack_output "${VPN_DIR}" sshUser "run ./scripts/up.sh vpn first")"
+CITY="$(require_stack_output "${VPN_DIR}" city "run ./scripts/up.sh vpn first")"
 
 SSH=(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 "${SSH_USER}@${PUBLIC_IP}")
 

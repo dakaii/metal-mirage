@@ -3,6 +3,12 @@
 # azure-metal-sim: Talos on Azure VMs (default — no home public IP required)
 # bare-metal:      real hardware via infra/bare-metal (same Talos + Flux contract)
 #
+# Capability ports (see docs/CAPABILITY-PORTS.md):
+#   Compute       → primary / standby provisioners below
+#   RemoteAccess  → remote_access (WireGuard is the OSS example; set provider: none to skip)
+#   Lifecycle     → not implemented in OSS (BMC/power)
+#   Observability → gitops/ hints (not configured here)
+#
 # Example bare-metal inventory: config/clusters.bare-metal.example.yaml
 # Docs: docs/PORTABLE-ARCHITECTURE.md
 
@@ -23,6 +29,13 @@ standby:
 shared:
   pulumi_dir: infra/shared
 
+# RemoteAccess port — WireGuard city exit is the shipped example adapter.
+# Set provider: none for platform-only bring-up (no VPN stack).
+remote_access:
+  provider: wireguard # wireguard | none
+  pulumi_dir: infra/vpn-gateways
+
+# Legacy alias (same plane). Scripts still accept "vpn"; prefer remote_access above.
 vpn:
   pulumi_dir: infra/vpn-gateways
   # City/region come from Pulumi stack config (vpn:city / vpn:location), not this file.

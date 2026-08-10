@@ -84,4 +84,4 @@ Short, actionable checklist for operators and contributors. Scope is **self-host
 
 In-repo: IaC, GitOps, witness, personal WireGuard exits, optional Clerk+Neon peer **demo** API.
 
-Out of repo: Stripe/Clerk Billing, multi-tenant abuse controls, geo-bypass marketing, managed paid control plane. Details: [ROADMAP.md](ROADMAP.md). Intended use / legality research notes: [LEGAL.md](LEGAL.md).
+Out of repo: Stripe/Clerk Billing, multi-tenant abuse controls, commercial unblocker marketing, managed paid control plane. Details: [ROADMAP.md](ROADMAP.md). Intended use / legality research notes: [LEGAL.md](LEGAL.md).

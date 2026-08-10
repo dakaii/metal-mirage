@@ -1,6 +1,8 @@
 # metal-mirage architecture
 
-Portable hybrid Kubernetes platform: **Talos Linux** on Azure VMs today (bare-metal simulation), **AKS** as standby, **Flux** GitOps, **Traffic Manager** failover, and an additive **WireGuard** city-exit plane. Optional **Clerk + Neon** peer portal for productizing VPN onboarding.
+Portable hybrid Kubernetes platform: **Talos Linux** on Azure VMs today (bare-metal simulation), **AKS** as standby, **Flux** GitOps, **Traffic Manager** failover, and an optional **RemoteAccess** plane (WireGuard city-exit is the shipped example). Optional **Clerk + Neon** peer portal for personal peer minting.
+
+Capability seams: [CAPABILITY-PORTS.md](CAPABILITY-PORTS.md).
 
 Successor ideas from [fantastic-spoon](https://github.com/dakaii/fantastic-spoon), rebuilt for Azure + Pulumi Go with **no Ansible**.
 
@@ -33,7 +35,7 @@ Successor ideas from [fantastic-spoon](https://github.com/dakaii/fantastic-spoon
 |-------|------|----------------|
 | L1 primary | `infra/primary` | Talos secrets, machine config, Azure VMs, API PIP + ingress LB (→ NodePort 30080) |
 | L1 standby | `infra/standby-aks` | AKS + Velero Blob storage + identity |
-| L1 VPN | `infra/vpn-gateways` | Ubuntu city-exit VM, cloud-init WireGuard |
+| L1 VPN / RemoteAccess | `infra/vpn-gateways` | Optional WireGuard city-exit adapter (`remote_access.provider`) |
 | L3 | `infra/flux-bootstrap`, `gitops/` | Helm Flux install; GitRepository/Kustomizations in-repo |
 | L4 | `infra/shared` | Traffic Manager profile + optional witness Function App |
 | Product (Phase 3) | `control-plane/` | Clerk auth + Neon peers API (optional) |
@@ -113,14 +115,14 @@ See [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) for the output contract
 | Plane | Stack | Role |
 |-------|-------|------|
 | Platform | primary / standby / shared / gitops | Operate Kubernetes, ingress, failover, observability |
-| Personal WireGuard | `infra/vpn-gateways` | Your device traffic → NAT → internet |
+| Personal WireGuard (RemoteAccess example) | `infra/vpn-gateways` | Optional; `remote_access.provider: wireguard` \| `none` |
 
 VPN gateways:
 
 - Own resource group and VNet (`10.66.0.0/16`).
 - cloud-init installs WireGuard; `scripts/vpn-bootstrap.sh` mints peer configs.
 - NSG allows UDP 51820 from anywhere (peers); SSH / node-exporter from `adminCidr` only.
-- Not on the HTTP/demo path; clients use official WireGuard apps only.
+- Not on the HTTP/demo path; import standard WireGuard `.conf` into official apps or other WG-capable clients (see [CLIENT-PROFILES.md](CLIENT-PROFILES.md)).
 
 Multi-city = another stack/region with a `city` tag; clients switch profiles manually (no auto peer failover in V1). Details: [VPN.md](VPN.md).
 
@@ -154,29 +156,33 @@ Standby overlays keep demo replicas at 0 until failover — keep cost and blast 
 
 - **Clerk** — Bearer session JWT on `/api/peers*`.
 - **Neon** — Postgres for device peer records.
-- `POST /api/peers` mints a WireGuard keypair + client config JSON.
+- `POST /api/peers` mints keys via the tunnel registry and returns typed client **exports** (WireGuard INI today).
+- `GET /api/tunnel/protocols` lists registered protocols.
 
 Pushing the peer public key onto the VPN VM (`wg set` / reconciler) remains an operator step in V1. Runbook: [control-plane/README.md](../control-plane/README.md).
 
 ## Repo map
 
 ```
-config/clusters.yaml     provisioner + city locations
+config/clusters.yaml     Compute + RemoteAccess switch
 infra/primary/           Talos metal-sim (Pulumi Go)
 infra/standby-aks/       AKS + Velero storage
 infra/shared/            Traffic Manager + witness
-infra/vpn-gateways/      WireGuard city exits
+infra/vpn-gateways/      RemoteAccess example (WireGuard)
 infra/flux-bootstrap/    Flux Helm bootstrap
 gitops/                  Flux-managed manifests
+pkg/ports/               Capability contracts
 control-plane/           Clerk + Neon peer portal
 scripts/                 up / destroy / vpn / flux helpers
-docs/                    deploy, cost, VPN, LEGAL, optional talk track
+docs/                    including CAPABILITY-PORTS.md
 ```
 
 ## Related docs
 
 - [DEPLOY.md](DEPLOY.md) — step-by-step bring-up
 - [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) — L1 switch contract
+- [CAPABILITY-PORTS.md](CAPABILITY-PORTS.md) — swappable ports + hard limits
+- [CLIENT-PROFILES.md](CLIENT-PROFILES.md) — WireGuard export registry
 - [VPN.md](VPN.md) — city exits and monitoring
 - [LEGAL.md](LEGAL.md) — personal/self-host intent + legality notes
 - [VELERO.md](VELERO.md) — backup storage notes

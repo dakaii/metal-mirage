@@ -15,11 +15,12 @@ need wg "On macOS: brew install wireguard-tools"
 need pulumi "Install: https://www.pulumi.com/docs/install/"
 need ssh
 
-select_stack infra/vpn-gateways
-PUBLIC_IP="$(require_stack_output infra/vpn-gateways publicIP "run ./scripts/up.sh vpn first")"
-SSH_USER="$(require_stack_output infra/vpn-gateways sshUser "run ./scripts/up.sh vpn first")"
-CITY="$(require_stack_output infra/vpn-gateways city "run ./scripts/up.sh vpn first")"
-cd "${ROOT}/infra/vpn-gateways"
+VPN_DIR="$(require_remote_access_dir)"
+select_stack "${VPN_DIR}"
+PUBLIC_IP="$(require_stack_output "${VPN_DIR}" publicIP "run ./scripts/up.sh vpn first")"
+SSH_USER="$(require_stack_output "${VPN_DIR}" sshUser "run ./scripts/up.sh vpn first")"
+CITY="$(require_stack_output "${VPN_DIR}" city "run ./scripts/up.sh vpn first")"
+cd "${ROOT}/${VPN_DIR}"
 
 echo "==> Fetching server public key from ${SSH_USER}@${PUBLIC_IP}"
 # Wait briefly for cloud-init on fresh VMs.
@@ -81,5 +82,6 @@ ssh "${SSH_USER}@${PUBLIC_IP}" \
   "sudo wg set wg0 peer ${PEER_PUB} allowed-ips ${PEER_IP}/32 && sudo wg-quick save wg0"
 
 echo "Client config written to ${CONF} (gitignored)"
-echo "Import into the official WireGuard app, then: curl ifconfig.me"
+echo "Import into any client that accepts standard WireGuard profiles"
+echo "(official WireGuard apps, Shadowrocket, etc.), then: curl ifconfig.me"
 echo "Honesty: AllowedIPs is full-tunnel — all device traffic exits via this city VM."

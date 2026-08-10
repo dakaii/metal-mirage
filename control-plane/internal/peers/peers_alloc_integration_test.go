@@ -27,21 +27,24 @@ func TestCreateAllocatesUniqueIPsAndReusesHoles(t *testing.T) {
 	_, _ = pool.Exec(ctx, `DELETE FROM peers WHERE user_id=$1`, "ip-alloc-integration")
 
 	store := NewStore(pool)
-	p1, err := store.Create(ctx, "ip-alloc-integration", "a", "pubA", "us")
+	p1, err := store.Create(ctx, "ip-alloc-integration", "a", "pubA", "us", "wireguard")
 	if err != nil {
 		t.Fatalf("create a: %v", err)
 	}
-	p2, err := store.Create(ctx, "ip-alloc-integration", "b", "pubB", "us")
+	p2, err := store.Create(ctx, "ip-alloc-integration", "b", "pubB", "us", "wireguard")
 	if err != nil {
 		t.Fatalf("create b: %v", err)
 	}
 	if p1.AllocatedIP == p2.AllocatedIP {
 		t.Fatalf("expected distinct IPs, both %s", p1.AllocatedIP)
 	}
+	if p1.Protocol != "wireguard" {
+		t.Fatalf("protocol: %q", p1.Protocol)
+	}
 	if err := store.Delete(ctx, "ip-alloc-integration", p1.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
-	p3, err := store.Create(ctx, "ip-alloc-integration", "c", "pubC", "us")
+	p3, err := store.Create(ctx, "ip-alloc-integration", "c", "pubC", "us", "")
 	if err != nil {
 		t.Fatalf("create c: %v", err)
 	}

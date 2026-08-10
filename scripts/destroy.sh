@@ -38,12 +38,24 @@ case "${TARGET}" in
   primary)  destroy_one "$(primary_dir)" ;;
   standby)  destroy_one "$(standby_dir)" ;;
   shared)   destroy_one infra/shared ;;
-  vpn)      destroy_one infra/vpn-gateways ;;
+  vpn | remote_access)
+    dir="$(resolve_pulumi_dir vpn)"
+    if [[ -z "${dir}" ]]; then
+      # provider=none still may have leftover stacks — try default adapter dir.
+      dir="infra/vpn-gateways"
+    fi
+    destroy_one "${dir}"
+    ;;
   flux)     destroy_one infra/flux-bootstrap ;;
   all)
     # Tear down dependents first. flux-bootstrap only removes Helm release;
     # cluster deletion (primary/standby) removes in-cluster Flux anyway.
-    destroy_one infra/vpn-gateways
+    ra_dir="$(resolve_pulumi_dir vpn)"
+    if [[ -z "${ra_dir}" ]]; then
+      # provider=none: still attempt default adapter dir so leftover stacks are not stranded.
+      ra_dir="infra/vpn-gateways"
+    fi
+    destroy_one "${ra_dir}"
     destroy_one infra/shared
     destroy_one infra/flux-bootstrap || true
     destroy_one "$(standby_dir)"
@@ -57,7 +69,7 @@ case "${TARGET}" in
     fi
     ;;
   *)
-    echo "usage: $0 primary|standby|shared|vpn|flux|all" >&2
+    echo "usage: $0 primary|standby|shared|vpn|remote_access|flux|all" >&2
     echo "env: PULUMI_STACK (default: dev)" >&2
     exit 1
     ;;

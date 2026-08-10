@@ -15,7 +15,7 @@ Need **Go 1.26.x** (CI matrix / infra modules). After `go mod tidy`, `go.mod`/`g
 
 ```bash
 # Go modules (same gates as CI matrix)
-for d in infra/*/ control-plane; do
+for d in infra/*/ control-plane pkg/ports; do
   (
     cd "$d" || exit 1
     go mod tidy
@@ -56,6 +56,7 @@ cd infra/primary && pulumi preview
 - `go-build (infra/vpn-gateways)`
 - `go-build (infra/flux-bootstrap)`
 - `go-build (control-plane)`
+- `go-build (pkg/ports)`
 - `kustomize`
 - `scripts`
 - `actionlint`
@@ -77,6 +78,7 @@ gh api repos/dakaii/metal-mirage/branches/main/protection/required_status_checks
   -f 'contexts[]=go-build (infra/vpn-gateways)' \
   -f 'contexts[]=go-build (infra/flux-bootstrap)' \
   -f 'contexts[]=go-build (control-plane)' \
+  -f 'contexts[]=go-build (pkg/ports)' \
   -f 'contexts[]=kustomize' \
   -f 'contexts[]=scripts' \
   -f 'contexts[]=actionlint' \

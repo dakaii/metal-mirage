@@ -7,10 +7,16 @@ source "${ROOT}/scripts/lib.sh"
 
 need go "Need Go 1.26.x (matches CI / infra go.mod)."
 
+echo "==> validate config/clusters.yaml capability ports (remote_access)"
+(
+  cd "${ROOT}/pkg/ports"
+  go test ./...
+)
+
 echo "==> validate config/clusters.yaml + bare-metal inventory contract"
 (
   cd "${ROOT}/infra/bare-metal"
   go test ./...
 )
 
-echo "OK — inventory contract is valid (offline)."
+echo "OK — inventory + capability-port contracts are valid (offline)."

@@ -16,22 +16,80 @@ need() {
   exit 1
 }
 
-resolve_pulumi_dir() {
-  # resolve_pulumi_dir <profile>  — reads config/clusters.yaml pulumi_dir
-  local profile="$1"
+yaml_section_key() {
+  # yaml_section_key <section> <key> — first matching key under a top-level section
+  local section="$1" key="$2"
   # shellcheck disable=SC2154 # ROOT is required from the sourcing script
   local file="${ROOT}/config/clusters.yaml"
-  local dir=""
-  dir="$(awk -v profile="${profile}:" '
-    $0 ~ "^" profile { in_section=1; next }
+  awk -v section="${section}:" -v key="${key}" '
+    $0 ~ "^" section { in_section=1; next }
     in_section && /^[a-zA-Z]/ { exit }
-    in_section && /^[[:space:]]*pulumi_dir:[[:space:]]*/ {
-      sub(/^[[:space:]]*pulumi_dir:[[:space:]]*/, "", $0)
+    in_section && $0 ~ "^[[:space:]]*" key ":" {
+      sub(/^[[:space:]]*[^:]+:[[:space:]]*/, "", $0)
       gsub(/["\r]/, "", $0)
+      # strip inline comments
+      sub(/[[:space:]]+#.*$/, "", $0)
       print $0
       exit
     }
-  ' "${file}" 2>/dev/null || true)"
+  ' "${file}" 2>/dev/null || true
+}
+
+remote_access_provider() {
+  # remote_access_provider — wireguard (default) | none
+  local p=""
+  p="$(yaml_section_key remote_access provider)"
+  p="$(printf '%s' "${p}" | tr -d '[:space:]')"
+  if [[ -z "${p}" ]]; then
+    echo "wireguard"
+    return 0
+  fi
+  printf '%s\n' "${p}"
+}
+
+require_remote_access_dir() {
+  # require_remote_access_dir — prints adapter pulumi dir; exits if RemoteAccess disabled/unresolved
+  if [[ "$(remote_access_provider)" == "none" ]]; then
+    echo "remote_access.provider=none — enable wireguard (or set remote_access.provider) before using VPN adapter scripts" >&2
+    echo "  See docs/CAPABILITY-PORTS.md" >&2
+    exit 1
+  fi
+  local dir=""
+  dir="$(resolve_pulumi_dir vpn)"
+  if [[ -z "${dir}" ]]; then
+    echo "remote_access.pulumi_dir unresolved (set remote_access.pulumi_dir or vpn.pulumi_dir in config/clusters.yaml)" >&2
+    exit 1
+  fi
+  printf '%s\n' "${dir}"
+}
+
+resolve_pulumi_dir() {
+  # resolve_pulumi_dir <profile>  — reads config/clusters.yaml pulumi_dir
+  # Profiles: primary | standby | shared | vpn | remote_access
+  # For vpn/remote_access: prefer remote_access.pulumi_dir, then vpn.pulumi_dir.
+  local profile="$1"
+  local dir=""
+
+  case "${profile}" in
+    vpn | remote_access)
+      if [[ "$(remote_access_provider)" == "none" ]]; then
+        # Caller should no-op; empty signals disabled RemoteAccess plane.
+        return 0
+      fi
+      dir="$(yaml_section_key remote_access pulumi_dir)"
+      if [[ -z "${dir}" ]]; then
+        dir="$(yaml_section_key vpn pulumi_dir)"
+      fi
+      if [[ -n "${dir}" ]]; then
+        printf '%s\n' "${dir}"
+        return 0
+      fi
+      echo "infra/vpn-gateways"
+      return 0
+      ;;
+  esac
+
+  dir="$(yaml_section_key "${profile}" pulumi_dir)"
   if [[ -n "${dir}" ]]; then
     printf '%s\n' "${dir}"
     return 0
@@ -40,7 +98,6 @@ resolve_pulumi_dir() {
     primary) echo "infra/primary" ;;
     standby) echo "infra/standby-aks" ;;
     shared) echo "infra/shared" ;;
-    vpn) echo "infra/vpn-gateways" ;;
     *) return 1 ;;
   esac
 }
