@@ -60,6 +60,11 @@ gallery VHD). Azure forbids changing VM `customData` in place; after first creat
 config updates go through Talos `ConfigurationApply` (Pulumi ignores `osProfile.customData`
 drift). To rewrite first-boot customData, replace the VMs explicitly.
 
+`./scripts/up.sh primary` also refreshes `primary:adminCidr` from your current public IP
+(NSG allow for Talos `:50000`). Without that, a drifted laptop IP causes
+`dial tcp …:50000: i/o timeout`. Override with `ADMIN_CIDR=…` or skip via
+`SKIP_ADMIN_CIDR_AUTO=1`.
+
 ## 2. Primary (metal-sim)
 
 ```bash

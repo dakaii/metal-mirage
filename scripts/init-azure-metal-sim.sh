@@ -161,21 +161,8 @@ discover_image_id() {
   printf '%s\n' "${id}"
 }
 
-detect_admin_cidr() {
-  local ip=""
-  local url
-  for url in "https://ifconfig.me" "https://api.ipify.org" "https://icanhazip.com"; do
-    ip="$(curl -fsSL --max-time 5 "${url}" 2>/dev/null | tr -d '[:space:]' || true)"
-    # Basic IPv4 check (Talos NSG path is /32-oriented for laptop labs).
-    if [[ "${ip}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      printf '%s/32\n' "${ip}"
-      return 0
-    fi
-  done
-  echo "could not detect public IPv4 for adminCidr (tried ifconfig.me / ipify / icanhazip)." >&2
-  echo "  Pass --admin-cidr 'x.x.x.x/32' explicitly." >&2
-  exit 1
-}
+# shellcheck source=scripts/lib-azure-vm.sh
+source "${ROOT}/scripts/lib-azure-vm.sh"
 
 if [[ "${WRITE_CLUSTERS}" -eq 1 ]]; then
   src="${ROOT}/config/clusters.azure-metal-sim.example.yaml"
@@ -222,7 +209,10 @@ echo "==> talosImageId: ${IMAGE_ID}"
 
 if [[ -z "${ADMIN_CIDR}" ]]; then
   echo "==> Detecting public IP for adminCidr"
-  ADMIN_CIDR="$(detect_admin_cidr)"
+  if ! ADMIN_CIDR="$(detect_admin_cidr)"; then
+    echo "  Pass --admin-cidr 'x.x.x.x/32' explicitly." >&2
+    exit 1
+  fi
 fi
 if ! [[ "${ADMIN_CIDR}" =~ ^[0-9./]+$ || "${ADMIN_CIDR}" =~ : ]]; then
   echo "adminCidr looks invalid: ${ADMIN_CIDR}" >&2
