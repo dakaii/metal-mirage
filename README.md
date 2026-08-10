@@ -42,7 +42,7 @@ Only Layer 1 changes when you move from Azure VMs to real hardware. Talos machin
 
 **Why Talos / no Ansible:** machine secrets and configs are Pulumi resources; there is no SSH playbook layer for the Kubernetes OS. VPN still uses cloud-init on Ubuntu because city exits are ordinary Linux appliances on a separate plane — not Talos nodes.
 
-**VPN vs platform:** WireGuard is full-tunnel egress on its own stack/RG. Flux / demo apps stay on the Talos (or AKS) path via Azure LB → NodePort (no Traefik in the portfolio path). Stock WireGuard clients only.
+**VPN vs platform:** WireGuard is full-tunnel egress on its own stack/RG. Flux / demo apps stay on the Talos (or AKS) path via Azure LB → NodePort (no Traefik in the portfolio path). Standard WireGuard `.conf` profiles (official apps, Shadowrocket, and similar).
 
 **Failover honesty:** Traffic Manager follows DNS TTL (profile TTL 30s plus resolver caches) — portfolio DR, not instant L4 cutover.
 
@@ -80,6 +80,7 @@ pulumi login   # or pulumi login --local
 | [docs/LEGAL.md](docs/LEGAL.md) | Personal/self-host intent + legality research notes |
 | [docs/PORTABLE-ARCHITECTURE.md](docs/PORTABLE-ARCHITECTURE.md) | L1 switch contract + hybrid matrix |
 | [docs/VPN.md](docs/VPN.md) | City exits, peer reconcile, monitoring, honesty notes |
+| [docs/CLIENT-PROFILES.md](docs/CLIENT-PROFILES.md) | Pluggable tunnel exports (WireGuard `.conf` first) |
 | [docs/COST.md](docs/COST.md) | Idle billing |
 | [docs/PORTFOLIO-DEMO.md](docs/PORTFOLIO-DEMO.md) | Talk track — bring stack up the night before |
 | [control-plane/README.md](control-plane/README.md) | Optional Clerk + Neon peer portal (Phase 3) |

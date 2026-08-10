@@ -2,11 +2,8 @@ package peers
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -15,10 +12,10 @@ import (
 
 	"github.com/dakaii/metal-mirage/control-plane/internal/auth"
 	"github.com/dakaii/metal-mirage/control-plane/internal/config"
+	"github.com/dakaii/metal-mirage/control-plane/internal/tunnel"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/crypto/curve25519"
 )
 
 // WireGuard client pool for city exits (matches vpn-bootstrap / cloud-init).
@@ -44,6 +41,7 @@ type Peer struct {
 	PublicKey   string    `json:"public_key"`
 	AllocatedIP string    `json:"allocated_ip"`
 	City        string    `json:"city"`
+	Protocol    string    `json:"protocol"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -57,7 +55,7 @@ func NewStore(pool *pgxpool.Pool) *Store {
 
 func (s *Store) List(ctx context.Context, userID string) ([]Peer, error) {
 	rows, err := s.pool.Query(ctx, `
-SELECT id::text, user_id, name, public_key, allocated_ip, city, created_at
+SELECT id::text, user_id, name, public_key, allocated_ip, city, protocol, created_at
 FROM peers WHERE user_id=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, err
@@ -70,7 +68,7 @@ FROM peers WHERE user_id=$1 ORDER BY created_at DESC`, userID)
 // Not exposed on the Clerk-authenticated HTTP API.
 func (s *Store) ListByCity(ctx context.Context, city string) ([]Peer, error) {
 	rows, err := s.pool.Query(ctx, `
-SELECT id::text, user_id, name, public_key, allocated_ip, city, created_at
+SELECT id::text, user_id, name, public_key, allocated_ip, city, protocol, created_at
 FROM peers WHERE city=$1 ORDER BY allocated_ip`, city)
 	if err != nil {
 		return nil, err
@@ -83,7 +81,7 @@ func scanPeers(rows pgx.Rows) ([]Peer, error) {
 	var out []Peer
 	for rows.Next() {
 		var p Peer
-		if err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.PublicKey, &p.AllocatedIP, &p.City, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.PublicKey, &p.AllocatedIP, &p.City, &p.Protocol, &p.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -94,7 +92,10 @@ func scanPeers(rows pgx.Rows) ([]Peer, error) {
 // Create inserts a peer, allocating the lowest free 10.66.0.x address inside a
 // transaction (advisory lock + UNIQUE(allocated_ip)) so concurrent creates and
 // post-DELETE holes cannot collide.
-func (s *Store) Create(ctx context.Context, userID, name, pub, city string) (Peer, error) {
+func (s *Store) Create(ctx context.Context, userID, name, pub, city, protocol string) (Peer, error) {
+	if protocol == "" {
+		protocol = string(tunnel.ProtocolWireGuard)
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Peer{}, err
@@ -111,11 +112,11 @@ func (s *Store) Create(ctx context.Context, userID, name, pub, city string) (Pee
 
 	var p Peer
 	err = tx.QueryRow(ctx, `
-INSERT INTO peers (user_id, name, public_key, allocated_ip, city)
-VALUES ($1,$2,$3,$4,$5)
-RETURNING id::text, user_id, name, public_key, allocated_ip, city, created_at`,
-		userID, name, pub, ip, city,
-	).Scan(&p.ID, &p.UserID, &p.Name, &p.PublicKey, &p.AllocatedIP, &p.City, &p.CreatedAt)
+INSERT INTO peers (user_id, name, public_key, allocated_ip, city, protocol)
+VALUES ($1,$2,$3,$4,$5,$6)
+RETURNING id::text, user_id, name, public_key, allocated_ip, city, protocol, created_at`,
+		userID, name, pub, ip, city, protocol,
+	).Scan(&p.ID, &p.UserID, &p.Name, &p.PublicKey, &p.AllocatedIP, &p.City, &p.Protocol, &p.CreatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return Peer{}, ErrDuplicateName
@@ -136,9 +137,9 @@ func (s *Store) Delete(ctx context.Context, userID, id string) error {
 func (s *Store) Get(ctx context.Context, userID, id string) (Peer, error) {
 	var p Peer
 	err := s.pool.QueryRow(ctx, `
-SELECT id::text, user_id, name, public_key, allocated_ip, city, created_at
+SELECT id::text, user_id, name, public_key, allocated_ip, city, protocol, created_at
 FROM peers WHERE id=$1::uuid AND user_id=$2`, id, userID,
-	).Scan(&p.ID, &p.UserID, &p.Name, &p.PublicKey, &p.AllocatedIP, &p.City, &p.CreatedAt)
+	).Scan(&p.ID, &p.UserID, &p.Name, &p.PublicKey, &p.AllocatedIP, &p.City, &p.Protocol, &p.CreatedAt)
 	return p, err
 }
 
@@ -212,12 +213,23 @@ func peerPoolOctet(ip string) (int, bool) {
 }
 
 type Handler struct {
-	store *Store
-	cfg   config.Config
+	store    *Store
+	cfg      config.Config
+	registry *tunnel.Registry
 }
 
-func NewHandler(store *Store, cfg config.Config) *Handler {
-	return &Handler{store: store, cfg: cfg}
+func NewHandler(store *Store, cfg config.Config, registry *tunnel.Registry) *Handler {
+	if registry == nil {
+		registry = tunnel.DefaultRegistry()
+	}
+	return &Handler{store: store, cfg: cfg, registry: registry}
+}
+
+// ListProtocols is public (no Clerk) — describes registered tunnel profile types.
+func (h *Handler) ListProtocols(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, map[string]any{
+		"protocols": h.registry.List(),
+	})
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
@@ -231,13 +243,16 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 type createReq struct {
-	Name string `json:"name"`
+	Name     string `json:"name"`
+	Protocol string `json:"protocol"` // optional; default wireguard
 }
 
 type createResp struct {
-	Peer       Peer   `json:"peer"`
-	PrivateKey string `json:"private_key"`
-	Config     string `json:"config"`
+	Peer       Peer            `json:"peer"`
+	PrivateKey string          `json:"private_key"`
+	Protocol   string          `json:"protocol"`
+	Config     string          `json:"config"`  // legacy alias: wireguard-conf body
+	Exports    []tunnel.Export `json:"exports"` // preferred: typed client imports
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -252,12 +267,22 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "name required", http.StatusBadRequest)
 		return
 	}
-	priv, pub, err := genWGKeypair()
+	protoID, err := tunnel.ParseProtocolID(strings.TrimSpace(req.Protocol))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	proto, ok := h.registry.Get(protoID)
+	if !ok {
+		http.Error(w, "unsupported protocol", http.StatusBadRequest)
+		return
+	}
+	priv, pub, err := proto.MintKeys()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	peer, err := h.store.Create(r.Context(), uid, req.Name, pub, h.cfg.VPNCity)
+	peer, err := h.store.Create(r.Context(), uid, req.Name, pub, h.cfg.VPNCity, string(protoID))
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrPoolExhausted):
@@ -269,8 +294,23 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	cfg := renderClientConfig(priv, peer.AllocatedIP, h.cfg)
-	writeJSON(w, createResp{Peer: peer, PrivateKey: priv, Config: cfg})
+	exports, err := proto.RenderExports(tunnel.ClientIdentity{
+		Name:        peer.Name,
+		PrivateKey:  priv,
+		PublicKey:   pub,
+		AddressCIDR: peer.AllocatedIP + "/32",
+	}, tunnel.DefaultEndpoint(h.cfg.VPNEndpoint, h.cfg.VPNServerPubKey, h.cfg.VPNCity))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, createResp{
+		Peer:       peer,
+		PrivateKey: priv,
+		Protocol:   string(protoID),
+		Config:     tunnel.ConfBody(exports),
+		Exports:    exports,
+	})
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -284,8 +324,8 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DownloadConfig(w http.ResponseWriter, r *http.Request) {
-	// Private keys are only returned at create time; this endpoint returns a
-	// template using the stored public peer identity for operators.
+	// Private keys are only returned at create time; this endpoint returns
+	// protocol metadata and export format IDs for operators.
 	uid := auth.UserID(r)
 	id := r.PathValue("id")
 	peer, err := h.store.Get(r.Context(), uid, id)
@@ -293,43 +333,20 @@ func (h *Handler) DownloadConfig(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", 404)
 		return
 	}
+	var formats []tunnel.FormatMeta
+	if p, ok := h.registry.Get(tunnel.ProtocolID(peer.Protocol)); ok {
+		formats = p.Formats()
+	}
 	writeJSON(w, map[string]any{
 		"peer":              peer,
-		"note":              "private key is only shown once at POST /api/peers",
+		"note":              "private key is only shown once at POST /api/peers; re-import from the create response exports",
 		"server_public_key": h.cfg.VPNServerPubKey,
 		"endpoint":          h.cfg.VPNEndpoint,
+		"export_formats":    formats,
 	})
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
-}
-
-func genWGKeypair() (privB64, pubB64 string, err error) {
-	var priv [32]byte
-	if _, err = rand.Read(priv[:]); err != nil {
-		return "", "", err
-	}
-	// clamp
-	priv[0] &= 248
-	priv[31] &= 127
-	priv[31] |= 64
-	var pub [32]byte
-	curve25519.ScalarBaseMult(&pub, &priv)
-	return base64.StdEncoding.EncodeToString(priv[:]), base64.StdEncoding.EncodeToString(pub[:]), nil
-}
-
-func renderClientConfig(priv, ip string, cfg config.Config) string {
-	return fmt.Sprintf(`[Interface]
-PrivateKey = %s
-Address = %s/32
-DNS = 1.1.1.1
-
-[Peer]
-PublicKey = %s
-Endpoint = %s
-AllowedIPs = 0.0.0.0/0, ::/0
-PersistentKeepalive = 25
-`, priv, ip, cfg.VPNServerPubKey, cfg.VPNEndpoint)
 }

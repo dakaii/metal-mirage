@@ -11,7 +11,7 @@ metal-mirage is **personal / self-host infrastructure**:
 - Optional **personal** WireGuard exit VM(s) for your own devices
 - Optional Clerk + Neon peer-minting demo for *your* peers — not a paid multi-tenant VPN product
 
-It is **Apache-2.0** open source (`LICENSE`). Publishing the code and running it for yourself is the design center. It is **not** marketed as a commercial VPN, streaming unblocker, or “bypass geo-blocks” service — those product surfaces stay out of this repo ([ROADMAP.md](ROADMAP.md)).
+It is **Apache-2.0** open source (`LICENSE`). Publishing the code and running it for yourself is the design center. It is **not** marketed as a commercial VPN or streaming-unblocker service — those product surfaces stay out of this repo ([ROADMAP.md](ROADMAP.md)).
 
 ## Short answer for personal use
 
@@ -49,7 +49,7 @@ Illegal activity remains illegal with or without WireGuard. Keep exits locked to
 
 US secondary copyright liability discussions often turn on **inducement** or a service **tailored for infringement** (see e.g. the Supreme Court’s framing in *Cox Communications v. Sony Music Entertainment*, 2026). DMCA anti-circumvention (17 U.S.C. § 1201) targets bypassing *technological protection measures*; whether a plain IP geo-check counts is contested and fact-specific.  
 
-**Practical rule for this repo:** document privacy, remote access, and lab DR. Do **not** add “bypass geo-blocks / unblock streaming” marketing or features whose primary story is rights evasion ([ROADMAP.md](ROADMAP.md) “Later — commercial”).
+**Practical rule for this repo:** document privacy, remote access, and lab DR. Do **not** add unblocker / rights-evasion marketing ([ROADMAP.md](ROADMAP.md) “Later — commercial”).
 
 ### 3. Operating exits for strangers (out of personal-use scope)
 
@@ -79,7 +79,7 @@ Official starting points: [BIS encryption controls](https://www.bis.gov/learn-su
 
 ### 6. Other countries
 
-Civilian VPN use is legal in much of the world and restricted or heavily regulated in a smaller set (examples often cited include China, Russia, Iran, and a few others — rules change). If you travel or place exits in another country, check **local** law for *use* and *operation* of VPN servers. Do not assume a US-centric answer applies everywhere.
+Civilian VPN use is legal in much of the world and restricted or heavily regulated in a smaller set of jurisdictions (rules change). If you travel or place exits in another country, check **local** law for *use* and *operation* of VPN servers. Do not assume a US-centric answer applies everywhere.
 
 ### 7. EU copyright / geo-blocking (context only)
 

@@ -4,6 +4,7 @@
 // Usage:
 //
 //	DATABASE_URL=… go run ./cmd/listpeers -city us
+//	DATABASE_URL=… go run ./cmd/listpeers -city us -protocol wireguard
 //
 // Output (TSV): public_key<TAB>allocated_ip<TAB>name<TAB>id
 //
@@ -22,15 +23,17 @@ import (
 
 	"github.com/dakaii/metal-mirage/control-plane/internal/db"
 	"github.com/dakaii/metal-mirage/control-plane/internal/peers"
+	"github.com/dakaii/metal-mirage/control-plane/internal/tunnel"
 	"github.com/joho/godotenv"
 )
 
 func main() {
 	city := flag.String("city", "", "VPN city filter (required; matches peers.city / vpn stack output)")
+	protocol := flag.String("protocol", string(tunnel.ProtocolWireGuard), "tunnel protocol filter (default wireguard; use \"\" for all)")
 	flag.Parse()
 	*city = strings.TrimSpace(*city)
 	if *city == "" {
-		fmt.Fprintln(os.Stderr, "usage: listpeers -city <city>")
+		fmt.Fprintln(os.Stderr, "usage: listpeers -city <city> [-protocol wireguard]")
 		os.Exit(2)
 	}
 
@@ -53,7 +56,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("list: %v (is the peers schema migrated? run control-plane ./cmd/server once)", err)
 	}
+	wantProto := strings.TrimSpace(*protocol)
 	for _, p := range list {
+		if wantProto != "" && p.Protocol != wantProto {
+			continue
+		}
 		fmt.Printf("%s\t%s\t%s\t%s\n", p.PublicKey, p.AllocatedIP, p.Name, p.ID)
 	}
 }

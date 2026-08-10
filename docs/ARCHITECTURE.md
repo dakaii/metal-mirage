@@ -120,7 +120,7 @@ VPN gateways:
 - Own resource group and VNet (`10.66.0.0/16`).
 - cloud-init installs WireGuard; `scripts/vpn-bootstrap.sh` mints peer configs.
 - NSG allows UDP 51820 from anywhere (peers); SSH / node-exporter from `adminCidr` only.
-- Not on the HTTP/demo path; clients use official WireGuard apps only.
+- Not on the HTTP/demo path; import standard WireGuard `.conf` into official apps or other WG-capable clients (see [CLIENT-PROFILES.md](CLIENT-PROFILES.md)).
 
 Multi-city = another stack/region with a `city` tag; clients switch profiles manually (no auto peer failover in V1). Details: [VPN.md](VPN.md).
 
@@ -154,7 +154,8 @@ Standby overlays keep demo replicas at 0 until failover — keep cost and blast 
 
 - **Clerk** — Bearer session JWT on `/api/peers*`.
 - **Neon** — Postgres for device peer records.
-- `POST /api/peers` mints a WireGuard keypair + client config JSON.
+- `POST /api/peers` mints keys via the tunnel registry and returns typed client **exports** (WireGuard INI today).
+- `GET /api/tunnel/protocols` lists registered protocols.
 
 Pushing the peer public key onto the VPN VM (`wg set` / reconciler) remains an operator step in V1. Runbook: [control-plane/README.md](../control-plane/README.md).
 

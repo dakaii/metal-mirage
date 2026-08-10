@@ -1,8 +1,10 @@
 # Self-host WireGuard (personal exit)
 
 Full-tunnel WireGuard exit on a dedicated Azure VM (cloud-init — **no Ansible**).
-Stock WireGuard clients only. Intended for **your** devices — not a multi-tenant commercial VPN.
+Standard WireGuard profiles for **your** devices — not a multi-tenant commercial VPN.
+Compatible with any client that imports stock WireGuard `.conf` (official apps, Shadowrocket, and similar).
 Not on the HTTP/demo path (Azure LB → NodePort). Legality / intended use: [LEGAL.md](LEGAL.md).
+Client profile architecture: [CLIENT-PROFILES.md](CLIENT-PROFILES.md).
 
 ## Exit vs platform
 
@@ -18,7 +20,7 @@ Not on the HTTP/demo path (Azure LB → NodePort). Legality / intended use: [LEG
 ./scripts/vpn-bootstrap.sh laptop
 ```
 
-Import `vpn-clients/us-laptop.conf` into the official WireGuard app.
+Import `vpn-clients/us-laptop.conf` into the official WireGuard app (or any client that accepts standard WireGuard profiles, e.g. Shadowrocket).
 
 ### Optional: sync control-plane peers → VM
 

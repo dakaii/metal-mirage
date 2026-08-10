@@ -4,23 +4,17 @@
 
 **Not in scope here:** Stripe, Clerk Billing, subscriptions, rate-limit product features, or multi-tenant SaaS abuse controls. See [docs/ROADMAP.md](../docs/ROADMAP.md).
 
+Client profile / export architecture: [docs/CLIENT-PROFILES.md](../docs/CLIENT-PROFILES.md).
+
 ## What it does
 
 - Authenticate users with **Clerk** (Bearer session JWT)
-- Store device peers in **Neon** Postgres
-- `POST /api/peers` mints a WireGuard keypair + client config JSON
-- Allocates `10.66.0.2`–`10.66.0.251` (lowest free; unique in DB; reuses holes after DELETE)
-- `POST /api/peers` returns **503** if the IP pool is exhausted, **409** if the device name already exists
+- Store device peers in **Neon** Postgres (`protocol` defaults to `wireguard`)
+- `POST /api/peers` mints keys via the tunnel registry and returns typed **exports** (plus legacy `config` for WireGuard INI)
+- `GET /api/tunnel/protocols` lists registered protocols (public)
 
-**Honesty — DB vs WireGuard drift:** this API only writes to Postgres. `scripts/vpn-bootstrap.sh` allocates from live `wg show` on the VM. After `POST /api/peers`, push DB peers onto the city VM with:
-
-```bash
-DATABASE_URL='…' ./scripts/vpn-reconcile-peers.sh
-# optional: --prune removes WireGuard peers absent from the DB for that city
-# (refuses if the DB has zero peers unless RECONCILE_I_MEAN_IT=1)
-```
-
-`DELETE /api/peers/{id}` removes the DB row only — re-run reconcile with `--prune` to drop it from `wg`.
+Pushing the peer public key to the VPN VM is still an operator step in V1
+(`wg set` / `./scripts/vpn-reconcile-peers.sh`).
 
 ## Setup
 
@@ -41,10 +35,15 @@ go run ./cmd/server
 | Method | Path | Auth | Notes |
 |--------|------|------|-------|
 | GET | `/healthz` | no | liveness |
+| GET | `/api/tunnel/protocols` | no | registered protocols + export format IDs |
 | GET | `/api/peers` | Clerk | list devices |
-| POST | `/api/peers` | Clerk | `{"name":"phone"}` → peer + private key + config |
+| POST | `/api/peers` | Clerk | `{"name":"phone"}` → peer + private key + `exports` (+ legacy `config`) |
 | DELETE | `/api/peers/{id}` | Clerk | remove |
-| GET | `/api/peers/{id}/config` | Clerk | metadata only |
+| GET | `/api/peers/{id}/config` | Clerk | metadata + export format list (no private key) |
+
+`POST` may include optional `"protocol":"wireguard"` (default). Unsupported IDs return `400`.
+
+Import `exports` where `id=wireguard-conf` into any client that accepts standard WireGuard profiles (official apps, Shadowrocket, etc.).
 
 ## Env
 

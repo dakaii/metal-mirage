@@ -81,5 +81,6 @@ ssh "${SSH_USER}@${PUBLIC_IP}" \
   "sudo wg set wg0 peer ${PEER_PUB} allowed-ips ${PEER_IP}/32 && sudo wg-quick save wg0"
 
 echo "Client config written to ${CONF} (gitignored)"
-echo "Import into the official WireGuard app, then: curl ifconfig.me"
+echo "Import into any client that accepts standard WireGuard profiles"
+echo "(official WireGuard apps, Shadowrocket, etc.), then: curl ifconfig.me"
 echo "Honesty: AllowedIPs is full-tunnel — all device traffic exits via this city VM."

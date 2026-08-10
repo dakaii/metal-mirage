@@ -20,10 +20,14 @@ CREATE TABLE IF NOT EXISTS peers (
   public_key TEXT NOT NULL,
   allocated_ip TEXT NOT NULL,
   city TEXT NOT NULL DEFAULT 'us',
+  protocol TEXT NOT NULL DEFAULT 'wireguard',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, name)
 );
+-- Older demos created peers without protocol; keep upgrades idempotent.
+ALTER TABLE peers ADD COLUMN IF NOT EXISTS protocol TEXT NOT NULL DEFAULT 'wireguard';
 CREATE INDEX IF NOT EXISTS peers_user_id_idx ON peers(user_id);
+CREATE INDEX IF NOT EXISTS peers_protocol_idx ON peers(protocol);
 -- Enforce one peer per WireGuard address (NextIP reuses holes after DELETE).
 -- IF NOT EXISTS only skips when this index name already exists; duplicate
 -- allocated_ip rows from a prior buggy deploy will still make Migrate fail.
