@@ -238,8 +238,8 @@ upload_in_azure() {
   }
   trap cleanup_helper EXIT
 
-  # Capacity varies by region; try a small list (SkuNotAvailable is common for B-series).
-  local sizes=() size chosen="" err
+  # Capacity + per-family quota vary by subscription/region; try several SKUs.
+  local sizes=() size chosen="" err reason
   err="$(mktemp)"
   if [[ -n "${TALOS_HELPER_VM_SIZES:-}" ]]; then
     # shellcheck disable=SC2206
@@ -252,15 +252,21 @@ upload_in_azure() {
       Standard_D2s_v5
       Standard_D2s_v4
       Standard_D2s_v3
+      Standard_DS2_v2
+      Standard_D2_v3
+      Standard_D2_v2
       Standard_B2ms
       Standard_B2s
-      Standard_DS2_v2
+      Standard_A2_v2
+      Standard_F2s_v2
+      Standard_E2s_v3
     )
   fi
 
   # run-command does not need SSH/public IP; VHD never touches the laptop.
   for size in "${sizes[@]}"; do
     echo "==> Creating helper VM ${HELPER_VM} (${size}, 64GiB OS disk, no public IP)"
+    # Capture full stderr: az 2.87 can crash after printing the real ARM error.
     if az vm create \
       --resource-group "${HELPER_RG}" \
       --name "${HELPER_VM}" \
@@ -271,26 +277,33 @@ upload_in_azure() {
       --public-ip-address "" \
       --admin-username azureuser \
       --generate-ssh-keys \
-      --only-show-errors \
       --output none 2>"${err}"; then
       chosen="${size}"
       break
     fi
-    if grep -qiE 'SkuNotAvailable|ZonalAllocationFailed|AllocationFailed' "${err}"; then
-      echo "    size ${size} unavailable in ${LOCATION}; trying next…"
+    reason="$(grep -oiE 'QuotaExceeded|SkuNotAvailable|ZonalAllocationFailed|AllocationFailed' "${err}" | head -n1 || true)"
+    if [[ -n "${reason}" ]]; then
+      echo "    ${size}: ${reason} in ${LOCATION}; trying next…"
       continue
     fi
     echo "helper VM create failed:" >&2
-    cat "${err}" >&2
+    # Prefer the ARM message; skip the az-cli "content already consumed" traceback noise.
+    if grep -q 'QuotaExceeded\|SkuNotAvailable\|InvalidTemplateDeployment' "${err}"; then
+      grep -E 'QuotaExceeded|SkuNotAvailable|Message:|Exception Details|Current Limit' "${err}" | head -n 20 >&2 || cat "${err}" >&2
+    else
+      cat "${err}" >&2
+    fi
     rm -f "${err}"
     exit 1
   done
   rm -f "${err}"
 
   if [[ -z "${chosen}" ]]; then
-    echo "no helper VM size available in ${LOCATION}." >&2
-    echo "  Retry with e.g. TALOS_HELPER_VM_SIZE=Standard_D4s_v3 or another region." >&2
-    echo "  List sizes: az vm list-skus --location ${LOCATION} --size Standard_D --resource-type virtualMachines -o table" >&2
+    echo "no helper VM size available in ${LOCATION} (quota and/or capacity)." >&2
+    echo "  Check quota: az vm list-usage -l ${LOCATION} -o table | awk 'NR==1 || /CurrentLimit|Family|Total/'" >&2
+    echo "  Or skip the helper VM and download locally:" >&2
+    echo "    ./scripts/register-talos-image.sh ${LOCATION} ${TALOS_VERSION}" >&2
+    echo "  Or set TALOS_HELPER_VM_SIZE to a family with quota > 0." >&2
     exit 1
   fi
   echo "==> Helper VM ready (${chosen})"
