@@ -29,8 +29,13 @@ Headless / no browser: `AZURE_LOGIN_FLAGS=--use-device-code ./scripts/login.sh`
 
 ## 1. Register Talos image (once — Azure metal-sim lab only)
 
+Downloads `azure-amd64.vhd.xz` from [Talos Image Factory](https://factory.talos.dev)
+(GitHub Releases no longer ship Azure VHDs). Override schematic with
+`TALOS_SCHEMATIC_ID` or full URL with `TALOS_IMAGE_URL`.
+
 ```bash
 ./scripts/register-talos-image.sh eastus
+# optional: ./scripts/register-talos-image.sh eastus v1.9.5
 cd infra/primary
 pulumi stack init dev
 pulumi config set azure-native:location eastus
