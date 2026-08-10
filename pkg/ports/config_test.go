@@ -76,7 +76,37 @@ func TestParseRemoteAccessProvider(t *testing.T) {
 func TestNoopLifecycle(t *testing.T) {
 	t.Parallel()
 	var l LifecyclePort = NoopLifecycle{}
-	if l.Provider() != "noop" {
+	if l.Provider() != LifecycleNoop {
 		t.Fatal(l.Provider())
+	}
+	if err := l.PowerOn("n1"); err != ErrLifecycleNotImplemented {
+		t.Fatalf("PowerOn: %v", err)
+	}
+}
+
+func TestValidateLifecycle(t *testing.T) {
+	t.Parallel()
+	if err := ValidateLifecycle(LifecycleConfig{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateLifecycle(LifecycleConfig{Provider: "noop"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateLifecycle(LifecycleConfig{Provider: "redfish"}); err == nil {
+		t.Fatal("expected redfish rejected in OSS")
+	}
+	if EffectiveLifecycleProvider(LifecycleConfig{}) != LifecycleNoop {
+		t.Fatal("default")
+	}
+}
+
+func TestLoadClustersCapabilitiesLifecycleDefault(t *testing.T) {
+	t.Parallel()
+	doc, err := LoadClustersCapabilities(filepath.Join(repoRoot(t), "config", "clusters.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if EffectiveLifecycleProvider(doc.Lifecycle) != LifecycleNoop {
+		t.Fatalf("lifecycle: %q", doc.Lifecycle.Provider)
 	}
 }

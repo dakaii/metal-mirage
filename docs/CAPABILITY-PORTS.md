@@ -13,7 +13,7 @@ Contracts live in [`pkg/ports`](../pkg/ports). Config seams live in
 |------|-------------------|-------------------|
 | **Compute** | `primary.*` / `standby.*` | `infra/primary`, `infra/bare-metal`, `infra/standby-aks` |
 | **RemoteAccess** | `remote_access.*` (legacy `vpn.*`) | `infra/vpn-gateways` + `scripts/vpn-*` (**wireguard**) or **none** |
-| **Lifecycle** | *(none yet)* | **noop** — BMC / power / PXE not automated |
+| **Lifecycle** | `lifecycle.provider` + optional `nodes[].bmc` | **noop** (default); ISO fetch + lab PXE helpers; Redfish out-of-tree — [INSTALL-TALOS.md](INSTALL-TALOS.md) |
 | **Observability** | `gitops/infrastructure/monitoring` | ConfigMap hints + optional PrometheusRules |
 
 ```
@@ -21,7 +21,7 @@ config/clusters.yaml
         │
         ├─ primary.provisioner ──► Pulumi dir (bare-metal | metal-sim | aks)
         ├─ remote_access.provider ──► none (default) | wireguard adapter
-        ├─ Lifecycle ──► not shipped (see “Not possible” below)
+        ├─ lifecycle.provider ──► noop (default; redfish rejected in OSS)
         └─ Observability ──► GitOps hints (not a driver API)
 ```
 
@@ -71,15 +71,16 @@ Each runtime needs a real adapter: IaC + projection scripts + (optionally) a
 not ship infinite providers.
 
 ### 2. Overnight BMC / “stop driving to Gangnam at 2am”
-**LifecyclePort is a stub (`noop`).** This repo does **not**:
+**LifecyclePort ships as `noop`.** This repo:
 
-- Talk to iDRAC / iLO / IPMI / Redfish
-- Power-cycle hung machines out-of-band
-- PXE-install Talos for you (docs still say ISO/PXE/Omni *outside* the stack)
-- Replace a failed UPS or broken BMC network path
+- **Does** checksum-fetch Talos ISO/kernel (`./scripts/fetch-talos-installer.sh`)
+- **Does** document a lab PXE recipe (`lab/pxe/`) — isolated VLAN only
+- **Does not** talk to iDRAC / iLO / IPMI / Redfish or power-cycle nodes
+- **Rejects** `lifecycle.provider: redfish` in config validation until an
+  out-of-tree adapter exists
 
-On-prem “lights-out” ops belong in a **commercial or follow-on adapter**, not
-this minimal ports overlay.
+Lights-out BMC belongs in a **commercial or follow-on adapter** implementing
+`LifecyclePort` — see [INSTALL-TALOS.md](INSTALL-TALOS.md).
 
 ### 3. Turn metal-mirage into a billed multi-tenant product in-tree
 Billing, Clerk subscriptions, abuse controls, and App Store clients stay **out

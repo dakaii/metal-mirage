@@ -1,0 +1,13 @@
+# Lab-only dnsmasq. Requires host networking + an isolated NIC.
+# Usage: see lab/pxe/README.md
+services:
+  dnsmasq:
+    image: andyshinn/dnsmasq:2.83
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./dnsmasq.conf.example:/etc/dnsmasq.conf:ro
+    # Mount a host tftpboot dir if you serve undionly.kpxe:
+    # - /var/lib/tftpboot:/tftpboot:ro
+    restart: "no"

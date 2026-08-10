@@ -5,7 +5,8 @@ On-prem Talos is the **preferred** primary. Azure metal-sim is optional lab mode
 ## 0. Prerequisites
 
 - Pulumi + Go 1.26.x (`./scripts/login.sh --skip-azure` or full login if you also use cloud standby)
-- Hardware (or VMs) that can boot Talos into **maintenance mode** (ISO / PXE / Omni — outside this repo)
+- Hardware (or VMs) that can boot Talos into **maintenance mode**
+  ([INSTALL-TALOS.md](INSTALL-TALOS.md): fetch ISO / lab PXE; BMC is noop in OSS)
 - `kubectl`, `flux` for GitOps
 - Optional: MetalLB (or another L2/VIP) so `ingressIP` is a stable HTTP target
 
@@ -44,9 +45,12 @@ This **overwrites** `baremetal:*` keys from YAML each run (SoT) — a hand-set
 ./scripts/sync-baremetal-config.sh
 ```
 
-## 2. Dry-run (offline) → export configs → maintenance → live apply
+## 2. Fetch installer → dry-run → export → maintenance → live apply
 
 ```bash
+./scripts/fetch-talos-installer.sh    # ISO → .secrets/talos-installer/ (sha256 verified)
+# Flash USB / boot nodes (or lab/pxe/). Details: docs/INSTALL-TALOS.md
+
 ./scripts/up.sh primary
 # dry_run=true → secrets + machine configs in state; no Talos API calls
 
@@ -54,12 +58,13 @@ This **overwrites** `baremetal:*` keys from YAML each run (SoT) — a hand-set
 # writes .secrets/bare-metal-configs/{controlplane-*.yaml,worker-*.yaml,APPLY.md}
 ```
 
-### Maintenance-mode checklist (outside this repo)
+### Maintenance-mode checklist
 
-Talos must be installed onto disks **before** `dry_run: false`. This repo does not
-PXE/BMC/ISO for you.
+Talos must reach **maintenance mode** before `dry_run: false`. Fetch an installer
+with `./scripts/fetch-talos-installer.sh` (see [INSTALL-TALOS.md](INSTALL-TALOS.md)).
+Full BMC/Redfish automation is **not** in OSS (`lifecycle.provider: noop`).
 
-1. Flash / PXE / Omni each node with a Talos installer matching your arch.
+1. Flash ISO / lab PXE / Omni each node with a Talos installer matching your arch.
 2. Boot into **maintenance mode** (apid listening — typically TCP `:50000`).
 3. Confirm the operator machine can reach each inventory IP (firewall / VLAN).
 4. Confirm `install_disk` in `clusters.yaml` matches the real target disk
@@ -166,6 +171,7 @@ Copy [config/clusters.azure-metal-sim.example.yaml](../config/clusters.azure-met
 
 | Doc | Role |
 |-----|------|
+| [INSTALL-TALOS.md](INSTALL-TALOS.md) | ISO fetch / lab PXE / Lifecycle |
 | [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) | L1 output contract |
 | [CAPABILITY-PORTS.md](CAPABILITY-PORTS.md) | Compute / RemoteAccess ports |
 | [DEPLOY.md](DEPLOY.md) | Full multi-stack bring-up |

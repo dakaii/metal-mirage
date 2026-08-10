@@ -55,11 +55,33 @@ type RemoteAccessPort interface {
 	PulumiDir() string
 }
 
+// LifecycleProvider identifies an out-of-band power/boot adapter.
+type LifecycleProvider string
+
+const (
+	// LifecycleNoop is the OSS default — ISO/PXE/Omni are operator-driven.
+	LifecycleNoop LifecycleProvider = "noop"
+	// LifecycleRedfish is reserved for a commercial / out-of-tree adapter.
+	// Configured in OSS → validation error (not silently ignored).
+	LifecycleRedfish LifecycleProvider = "redfish"
+)
+
 // LifecyclePort covers out-of-band power and boot control (BMC / Redfish / iLO).
-// OSS does not ship a working adapter — see docs/CAPABILITY-PORTS.md.
+// OSS ships only NoopLifecycle — see docs/CAPABILITY-PORTS.md and docs/INSTALL-TALOS.md.
 type LifecyclePort interface {
-	Provider() string
+	Provider() LifecycleProvider
+	// PowerOn / PowerOff / SetBootPXE are intentional seams. Noop returns ErrLifecycleNotImplemented.
+	PowerOn(nodeID string) error
+	PowerOff(nodeID string) error
+	SetBootPXE(nodeID string) error
 }
+
+// ErrLifecycleNotImplemented is returned by NoopLifecycle for all mutating calls.
+var ErrLifecycleNotImplemented = errLifecycle("lifecycle adapter not implemented in OSS (provider=noop); use ISO/USB or lab/pxe, or an out-of-tree Redfish adapter")
+
+type errLifecycle string
+
+func (e errLifecycle) Error() string { return string(e) }
 
 // ObservabilityPort describes how health/metrics are exposed to operators.
 // Today this is GitOps ConfigMap hints + optional PrometheusRule CRDs, not a driver.
@@ -70,7 +92,13 @@ type ObservabilityPort interface {
 // NoopLifecycle documents the missing BMC capability without pretending it works.
 type NoopLifecycle struct{}
 
-func (NoopLifecycle) Provider() string { return "noop" }
+func (NoopLifecycle) Provider() LifecycleProvider { return LifecycleNoop }
+
+func (NoopLifecycle) PowerOn(string) error { return ErrLifecycleNotImplemented }
+
+func (NoopLifecycle) PowerOff(string) error { return ErrLifecycleNotImplemented }
+
+func (NoopLifecycle) SetBootPXE(string) error { return ErrLifecycleNotImplemented }
 
 // GitOpsObservability is the shipped observability shape (hints in gitops/).
 type GitOpsObservability struct{}

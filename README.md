@@ -50,11 +50,12 @@ Only Layer 1 changes when you move between metal and Azure lab VMs. Switch: [`co
 ./scripts/validate-inventory.sh
 
 # Edit config/clusters.yaml IPs/disks for your hardware (default is dry_run: true)
-./scripts/up.sh primary           # syncs inventory → Pulumi, then pulumi up
+./scripts/fetch-talos-installer.sh              # checksum-verified metal ISO → .secrets/
+# Flash USB / boot to maintenance (docs/INSTALL-TALOS.md). Lab PXE: lab/pxe/
+./scripts/up.sh primary                         # syncs inventory → Pulumi, then pulumi up
 ./scripts/export-baremetal-machine-configs.sh   # USB / talosctl apply files
 
-# Boot Talos to maintenance mode (ISO/PXE/Omni — outside repo), then:
-#   set dry_run: false → ./scripts/up.sh primary
+# After Talos is in maintenance mode: set dry_run: false, up again, then:
 #   pulumi -C infra/bare-metal stack output kubeconfig --show-secrets > .secrets/primary.kubeconfig
 #   ./scripts/install-flux.sh primary
 # Details: docs/METAL-PRIMARY.md
@@ -75,6 +76,7 @@ cp config/clusters.azure-metal-sim.example.yaml config/clusters.yaml
 | Doc | Contents |
 |-----|----------|
 | [docs/METAL-PRIMARY.md](docs/METAL-PRIMARY.md) | **Start here** — metal inventory, ingress, Flux |
+| [docs/INSTALL-TALOS.md](docs/INSTALL-TALOS.md) | ISO fetch / lab PXE / Lifecycle noop vs Redfish |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layers, failover, VPN split |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Full bring-up (Flux, witness, VPN peers) |
 | [docs/DR.md](docs/DR.md) | Failover drill (Traffic Manager + witness) |

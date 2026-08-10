@@ -21,15 +21,22 @@ type VPNAlias struct {
 	PulumiDir string `yaml:"pulumi_dir"`
 }
 
+// LifecycleConfig is the optional lifecycle: stanza of config/clusters.yaml.
+type LifecycleConfig struct {
+	// Provider is noop (default) or redfish (rejected in OSS until an adapter ships).
+	Provider string `yaml:"provider"`
+}
+
 // ClustersCapabilities is the capability-oriented view of config/clusters.yaml.
 // Primary compute validation remains in infra/bare-metal; this focuses on
-// remote_access (+ optional vpn alias).
+// remote_access (+ optional vpn alias) and lifecycle.
 type ClustersCapabilities struct {
 	RemoteAccess RemoteAccessConfig `yaml:"remote_access"`
 	VPN          VPNAlias           `yaml:"vpn"`
+	Lifecycle    LifecycleConfig    `yaml:"lifecycle"`
 }
 
-// LoadClustersCapabilities reads remote_access / vpn from clusters.yaml.
+// LoadClustersCapabilities reads remote_access / vpn / lifecycle from clusters.yaml.
 func LoadClustersCapabilities(path string) (*ClustersCapabilities, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -42,7 +49,31 @@ func LoadClustersCapabilities(path string) (*ClustersCapabilities, error) {
 	if err := ValidateRemoteAccess(doc.RemoteAccess, doc.VPN); err != nil {
 		return nil, err
 	}
+	if err := ValidateLifecycle(doc.Lifecycle); err != nil {
+		return nil, err
+	}
 	return &doc, nil
+}
+
+// EffectiveLifecycleProvider returns noop when unset.
+func EffectiveLifecycleProvider(lc LifecycleConfig) LifecycleProvider {
+	p := strings.TrimSpace(lc.Provider)
+	if p == "" {
+		return LifecycleNoop
+	}
+	return LifecycleProvider(p)
+}
+
+// ValidateLifecycle enforces the Lifecycle port config contract.
+func ValidateLifecycle(lc LifecycleConfig) error {
+	switch EffectiveLifecycleProvider(lc) {
+	case LifecycleNoop:
+		return nil
+	case LifecycleRedfish:
+		return fmt.Errorf("lifecycle.provider %q is not implemented in OSS (use noop; Redfish belongs in an out-of-tree adapter — docs/INSTALL-TALOS.md)", LifecycleRedfish)
+	default:
+		return fmt.Errorf("lifecycle.provider %q is unsupported (want noop)", lc.Provider)
+	}
 }
 
 // ValidateRemoteAccess enforces the RemoteAccess port config contract.
