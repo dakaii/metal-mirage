@@ -171,6 +171,7 @@ Copy [config/clusters.azure-metal-sim.example.yaml](../config/clusters.azure-met
 
 | Doc | Role |
 |-----|------|
+| [INSTALL-TALOS.md](INSTALL-TALOS.md) | ISO fetch / lab PXE / Lifecycle |
 | [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) | L1 output contract |
 | [CAPABILITY-PORTS.md](CAPABILITY-PORTS.md) | Compute / RemoteAccess ports |
 | [DEPLOY.md](DEPLOY.md) | Full multi-stack bring-up |
