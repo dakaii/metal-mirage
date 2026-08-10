@@ -18,10 +18,19 @@ const (
 	RoleWorker       NodeRole = "worker"
 )
 
+// NodeBMC is optional out-of-band management metadata (Lifecycle seam).
+// Never put passwords here — credentials stay in env / a secret store.
+// json:"-" keeps BMC out of Pulumi baremetal:nodes JSON.
+type NodeBMC struct {
+	Endpoint string `yaml:"endpoint"` // e.g. https://192.168.1.100
+	Username string `yaml:"username"`
+}
+
 // Node is one bare-metal host in the L1 inventory.
 type Node struct {
 	Role NodeRole `json:"role" yaml:"role"`
 	IP   string   `json:"ip" yaml:"ip"`
+	BMC  *NodeBMC `json:"-" yaml:"bmc"`
 }
 
 // PrimaryCluster is the primary stanza of config/clusters.yaml.
@@ -131,6 +140,17 @@ func ValidateNodes(nodes []Node) error {
 		seen[ip] = struct{}{}
 		nodes[i].Role = role
 		nodes[i].IP = ip
+		if nodes[i].BMC != nil {
+			ep := strings.TrimSpace(nodes[i].BMC.Endpoint)
+			if ep == "" {
+				return fmt.Errorf("node[%d]: bmc.endpoint is required when bmc: is set", i)
+			}
+			if !strings.HasPrefix(ep, "https://") && !strings.HasPrefix(ep, "http://") {
+				return fmt.Errorf("node[%d]: bmc.endpoint must be http(s) URL", i)
+			}
+			nodes[i].BMC.Endpoint = ep
+			nodes[i].BMC.Username = strings.TrimSpace(nodes[i].BMC.Username)
+		}
 	}
 	if cp == 0 {
 		return fmt.Errorf("at least one controlplane node is required")

@@ -6,10 +6,10 @@
 # Capability ports (docs/CAPABILITY-PORTS.md):
 #   Compute       → primary / standby provisioners
 #   RemoteAccess  → none by default; set wireguard to enable city-exit adapter
-#   Lifecycle     → not implemented in OSS (BMC/power)
+#   Lifecycle     → noop in OSS (optional per-node bmc: metadata only; see INSTALL-TALOS.md)
 #   Observability → gitops/ hints
 #
-# Golden path: docs/METAL-PRIMARY.md
+# Golden path: docs/METAL-PRIMARY.md · Install: docs/INSTALL-TALOS.md
 # Inventory SoT for bare-metal: primary.nodes (+ optional api_endpoint_ip, …)
 #   → ./scripts/sync-baremetal-config.sh (also run by ./scripts/up.sh primary)
 
@@ -25,6 +25,10 @@ primary:
   nodes:
     - role: controlplane
       ip: 192.168.1.10
+      # Optional BMC metadata (not used by OSS noop Lifecycle — passwords never here):
+      # bmc:
+      #   endpoint: https://192.168.1.100
+      #   username: root
     - role: worker
       ip: 192.168.1.11
 
@@ -40,6 +44,10 @@ shared:
 remote_access:
   provider: none # wireguard | none
   pulumi_dir: infra/vpn-gateways
+
+# Lifecycle — noop in OSS (ISO/USB + lab/pxe). redfish is rejected until out-of-tree.
+lifecycle:
+  provider: noop
 
 # Legacy alias (same plane). Scripts still accept "vpn".
 vpn:

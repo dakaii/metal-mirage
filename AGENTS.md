@@ -20,11 +20,12 @@ Auth: `./scripts/login.sh` (Azure + Pulumi; `--status`, `--local-pulumi`, option
 - `remote_access.provider` (`none` default \| `wireguard`) selects the optional RemoteAccess adapter (`docs/CAPABILITY-PORTS.md`).
 - `./scripts/up.sh primary` / `./scripts/destroy.sh primary` resolve that path via `scripts/lib.sh`.
 - Offline inventory + ports check (no Azure/hardware): `./scripts/validate-inventory.sh`.
+- Talos install helpers: `go -C tools/talos-installer` / `./scripts/fetch-talos-installer.sh` (checksummed ISO); lab PXE under `lab/pxe/`; Lifecycle stays `noop` in OSS (`docs/INSTALL-TALOS.md`).
 - Examples: `config/clusters.bare-metal.example.yaml`, `config/clusters.azure-metal-sim.example.yaml`.
 
 ### CI-equivalent checks (see `.github/workflows/ci.yml` and `CONTRIBUTING.md`)
-- Per Go module (`infra/primary`, `infra/bare-metal`, `infra/standby-aks`, `infra/shared`, `infra/vpn-gateways`, `infra/flux-bootstrap`, `control-plane`, `pkg/ports`): `go mod tidy` (must leave `go.mod`/`go.sum` clean), `gofmt -l`, `go vet ./...`, `go build ./...`.
-- `go test ./...` for `infra/bare-metal`, `control-plane`, and `pkg/ports` when those modules have tests.
+- Per Go module (`infra/primary`, `infra/bare-metal`, `infra/standby-aks`, `infra/shared`, `infra/vpn-gateways`, `infra/flux-bootstrap`, `control-plane`, `pkg/ports`, `tools/talos-installer`): `go mod tidy` (must leave `go.mod`/`go.sum` clean), `gofmt -l`, `go vet ./...`, `go build ./...`.
+- `go test ./...` for `infra/bare-metal`, `control-plane`, `pkg/ports`, and `tools/talos-installer` when those modules have tests.
 - `kustomize build` on `gitops/apps`, `gitops/infrastructure`, `gitops/infrastructure/monitoring`, `gitops/clusters/primary`, `gitops/clusters/standby`.
 - From repo root: `shellcheck -x scripts/*.sh` (sourced helpers use `# shellcheck source=scripts/lib.sh`) and `./scripts/validate-inventory.sh`.
 - Also: `actionlint` on `.github/workflows`; `gitleaks` secret scan. No `pulumi preview` in CI (needs Azure).

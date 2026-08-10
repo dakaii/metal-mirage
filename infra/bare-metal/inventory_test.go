@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -58,6 +59,31 @@ func TestValidateNodesTrimsFields(t *testing.T) {
 	}
 	if nodes[0].Role != RoleControlPlane || nodes[0].IP != "10.0.0.9" {
 		t.Fatalf("expected trimmed fields, got %#v", nodes[0])
+	}
+}
+
+func TestValidateNodesBMC(t *testing.T) {
+	t.Parallel()
+	nodes := []Node{{
+		Role: RoleControlPlane,
+		IP:   "10.0.0.1",
+		BMC:  &NodeBMC{Endpoint: " https://10.0.0.2 ", Username: " root "},
+	}}
+	if err := ValidateNodes(nodes); err != nil {
+		t.Fatal(err)
+	}
+	if nodes[0].BMC.Endpoint != "https://10.0.0.2" || nodes[0].BMC.Username != "root" {
+		t.Fatalf("%#v", nodes[0].BMC)
+	}
+	raw, err := NodesToJSON(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(raw, "bmc") || strings.Contains(raw, "10.0.0.2") {
+		t.Fatalf("BMC must not appear in Pulumi nodes JSON: %s", raw)
+	}
+	if err := ValidateNodes([]Node{{Role: RoleControlPlane, IP: "10.0.0.1", BMC: &NodeBMC{Endpoint: "10.0.0.2"}}}); err == nil {
+		t.Fatal("expected bad bmc.endpoint error")
 	}
 }
 

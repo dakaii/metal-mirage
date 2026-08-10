@@ -5,7 +5,8 @@ On-prem Talos is the **preferred** primary. Azure metal-sim is optional lab mode
 ## 0. Prerequisites
 
 - Pulumi + Go 1.26.x (`./scripts/login.sh --skip-azure` or full login if you also use cloud standby)
-- Hardware (or VMs) that can boot Talos into **maintenance mode** (ISO / PXE / Omni — outside this repo)
+- Hardware (or VMs) that can boot Talos into **maintenance mode**
+  ([INSTALL-TALOS.md](INSTALL-TALOS.md): fetch ISO / lab PXE; BMC is noop in OSS)
 - `kubectl`, `flux` for GitOps
 - Optional: MetalLB (or another L2/VIP) so `ingressIP` is a stable HTTP target
 
@@ -44,13 +45,17 @@ This **overwrites** `baremetal:*` keys from YAML each run (SoT) — a hand-set
 ./scripts/sync-baremetal-config.sh
 ```
 
-## 2. Dry-run (offline) then live apply
+## 2. Fetch installer → maintenance → dry-run / live apply
 
 ```bash
+./scripts/fetch-talos-installer.sh    # ISO → .secrets/talos-installer/ (sha256 verified)
+# Flash USB / boot nodes to maintenance (apid :50000). Lab PXE: lab/pxe/
+# Details: docs/INSTALL-TALOS.md
+
 ./scripts/up.sh primary
 # dry_run=true → secrets + machine configs in state; no Talos API calls
 
-# Install Talos on nodes → maintenance mode, then:
+# When every node is in maintenance mode:
 #   set dry_run: false in config/clusters.yaml
 ./scripts/sync-baremetal-config.sh
 ./scripts/up.sh primary

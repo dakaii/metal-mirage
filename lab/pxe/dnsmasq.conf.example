@@ -1,0 +1,23 @@
+# Example dnsmasq for an *isolated* lab VLAN. Do NOT point this at your main LAN
+# DHCP without knowing what you are doing.
+#
+# Replace:
+#   interface=          lab NIC
+#   dhcp-range=         lab subnet
+#   dhcp-option=option:router
+#   PXE HTTP host that serves .secrets/talos-installer/
+
+interface=eth1
+bind-interfaces
+dhcp-range=192.168.10.50,192.168.10.100,12h
+dhcp-option=option:router,192.168.10.1
+dhcp-option=option:dns-server,192.168.10.1
+
+# iPXE chain: undionly/ipxe.efi (provide your own) → boot.ipxe on HTTP
+# Simplest lab path: machines already running iPXE firmware fetch boot.ipxe:
+dhcp-boot=tag:!ipxe,undionly.kpxe
+dhcp-match=set:ipxe,175 # RFC4578
+dhcp-boot=tag:ipxe,http://192.168.10.2:8080/boot.ipxe
+
+enable-tftp
+tftp-root=/tftpboot
