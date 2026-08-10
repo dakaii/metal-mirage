@@ -1,6 +1,6 @@
 # Auto-failover modes (best practices + feasibility)
 
-Portfolio DR for metal-mirage has **three independent planes**. Only Traffic Manager DNS failover is “automatic” out of the box. Cold-standby promote stays **opt-in** on purpose.
+Personal/self-host DR for metal-mirage has **three independent planes**. Only Traffic Manager DNS failover is “automatic” out of the box. Cold-standby promote stays **opt-in** on purpose.
 
 ## Feasibility verdict
 
@@ -75,14 +75,20 @@ HMAC: raw body is `json.dumps(..., sort_keys=True, separators=(",", ":"))`, sign
 ### 1. Wire the witness to GitHub
 
 ```bash
-# classic PAT or fine-grained token with Actions: write (repository_dispatch)
+# Token must be able to create repository_dispatch on THIS repo only:
+#   Fine-grained PAT: Repository access → only OWNER/metal-mirage;
+#     Permissions → Contents: Read and write  (required for POST …/dispatches)
+#   Classic PAT: repo scope (broader — prefer fine-grained)
+# Do not use a token with admin/org-wide access. Rotate after enablement tests.
 pulumi -C infra/shared config set shared:failoverGitHubRepo 'OWNER/metal-mirage'
-pulumi -C infra/shared config set --secret shared:failoverGitHubToken 'ghp_…'
+pulumi -C infra/shared config set --secret shared:failoverGitHubToken 'github_pat_…'
 pulumi -C infra/shared up
 ./scripts/deploy-witness.sh
 ```
 
 You can combine Modes B and C. Either alone is enough to notify.
+
+The token lives in Function App settings (long-lived). Treat a leak as “attacker can queue `failover-candidate` workflows”; with `FAILOVER_AUTO_PROMOTE=true` that becomes a live promote. Keep auto-promote off until the token is scoped and rotated on a schedule (or replace later with a GitHub App installation token).
 
 ### 2. Repository secrets / variables
 
@@ -116,11 +122,13 @@ End-to-end “API down → users on standby” is commonly **~5–15 minutes**, 
 
 ## Security checklist
 
-- Prefer **HMAC** on generic webhooks; prefer **fine-grained PAT** scoped to this repo for GitHub dispatch.
-- Rotate `failoverGitHubToken` / webhook secrets; store via `pulumi config set --secret`.
-- Keep `FAILOVER_AUTO_PROMOTE` off until secrets and RBAC are correct.
+- Prefer **HMAC** on generic webhooks (`X-Metal-Mirage-Signature`); receivers must verify before acting.
+- Prefer a **fine-grained PAT** limited to this repository with **Contents: Read and write** (not “Actions: write” alone — that is insufficient for `repository_dispatch`).
+- Store `failoverGitHubToken` / HMAC / webhook URL via `pulumi config set --secret`; rotate periodically and after any suspected leak.
+- Keep `FAILOVER_AUTO_PROMOTE` off until secrets and RBAC are correct; stolen dispatch token + auto-promote = unauthorized scale.
 - Service principal / `AZURE_CREDENTIALS` needs Traffic Manager endpoint update only when using `--disable-primary-tm`.
 - Standby kubeconfig is cluster-admin equivalent — treat like production credentials.
+- Workflow logs should not dump full `client_payload` (may include API URLs / IPs).
 
 ## Why not promote inside the Function?
 

@@ -68,7 +68,12 @@ jobs:
             if [[ "${INPUT_DISABLE_TM}" == "true" ]]; then DISABLE_TM=1; else DISABLE_TM=0; fi
             REPLICAS="${INPUT_REPLICAS:-2}"
           else
-            echo "repository_dispatch payload: ${DISPATCH_PAYLOAD}"
+            # Redact — do not echo DISPATCH_PAYLOAD (may include primary_api_url / IPs).
+            echo "repository_dispatch received (event_type=failover-candidate); payload redacted"
+            EVENT_FIELD="$(printf '%s' "${DISPATCH_PAYLOAD}" | sed -n 's/.*"event"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+            FAIL_FIELD="$(printf '%s' "${DISPATCH_PAYLOAD}" | sed -n 's/.*"consecutive_failures"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)"
+            THRESH_FIELD="$(printf '%s' "${DISPATCH_PAYLOAD}" | sed -n 's/.*"threshold"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)"
+            echo "dispatch summary: event=${EVENT_FIELD:-?} failures=${FAIL_FIELD:-?}/${THRESH_FIELD:-?}"
             # Opt-in only — never auto-scale from a webhook without an explicit repo variable.
             if [[ "${AUTO_PROMOTE}" == "true" ]]; then
               DRY_RUN=0

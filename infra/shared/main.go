@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/pulumi/pulumi-azure-native-sdk/network/v2"
@@ -115,6 +116,17 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 	failoverHMAC := strings.TrimSpace(cfgGet(cfg, "failoverWebhookHMACSecret", ""))
 	failoverGitHubRepo := strings.TrimSpace(cfgGet(cfg, "failoverGitHubRepo", ""))
 	failoverGitHubToken := strings.TrimSpace(cfgGet(cfg, "failoverGitHubToken", ""))
+	if (failoverGitHubRepo == "") != (failoverGitHubToken == "") {
+		return fmt.Errorf("shared:failoverGitHubRepo and shared:failoverGitHubToken must both be set (or both empty); see docs/AUTO-FAILOVER.md")
+	}
+	if failoverHMAC != "" && failoverWebhook == "" {
+		return fmt.Errorf("shared:failoverWebhookHMACSecret requires shared:failoverWebhookURL")
+	}
+	if failoverGitHubRepo != "" {
+		if strings.Count(failoverGitHubRepo, "/") != 1 || strings.HasPrefix(failoverGitHubRepo, "/") || strings.HasSuffix(failoverGitHubRepo, "/") {
+			return fmt.Errorf("shared:failoverGitHubRepo must be owner/name, got %q", failoverGitHubRepo)
+		}
+	}
 	stateContainer := "witness-state"
 
 	sa, err := storage.NewStorageAccount(ctx, "witnesssa", &storage.StorageAccountArgs{

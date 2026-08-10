@@ -83,6 +83,7 @@ gh api repos/dakaii/metal-mirage/branches/main/protection/required_status_checks
   -f 'contexts[]=go-build (pkg/ports)' \
   -f 'contexts[]=kustomize' \
   -f 'contexts[]=scripts' \
+  -f 'contexts[]=witness-notify' \
   -f 'contexts[]=actionlint' \
   -f 'contexts[]=gitleaks'
 ```

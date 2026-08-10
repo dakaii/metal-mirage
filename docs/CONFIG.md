@@ -99,7 +99,7 @@ AKS enables OIDC + workload identity. Velero storage uses a user-assigned identi
 | `shared:failoverWebhookURL` | no | — | Optional HTTPS webhook; POSTed once at threshold (use `--secret`) — [AUTO-FAILOVER.md](AUTO-FAILOVER.md) |
 | `shared:failoverWebhookHMACSecret` | no | — | Optional HMAC for `X-Metal-Mirage-Signature` (`--secret`) |
 | `shared:failoverGitHubRepo` | no | — | Optional `owner/repo` for `repository_dispatch` |
-| `shared:failoverGitHubToken` | no | — | Optional GitHub token for dispatch (`--secret`) |
+| `shared:failoverGitHubToken` | no | — | Optional GitHub token for dispatch (`--secret`); fine-grained PAT on that repo with **Contents: Read and write** (see [AUTO-FAILOVER.md](AUTO-FAILOVER.md)) |
 | `shared:location` | no | `eastus` | |
 
 Witness consecutive-failure state is stored in a private blob container (`witness-state`) on the Function storage account — not `/tmp` — so Consumption (Y1) cold starts keep the counter. After changing witness code or failover notify settings, re-run `./scripts/deploy-witness.sh` (and `pulumi up` shared for app settings).

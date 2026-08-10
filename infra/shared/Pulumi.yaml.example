@@ -12,7 +12,7 @@ description: Traffic Manager failover + optional witness Function
 #   pulumi config set --secret shared:failoverWebhookURL 'https://…'  # optional notify
 #   pulumi config set --secret shared:failoverWebhookHMACSecret '…'   # optional X-Metal-Mirage-Signature
 #   pulumi config set shared:failoverGitHubRepo 'OWNER/metal-mirage'   # optional repository_dispatch
-#   pulumi config set --secret shared:failoverGitHubToken 'ghp_…'
+#   pulumi config set --secret shared:failoverGitHubToken 'github_pat_…'  # fine-grained: Contents R/W on that repo only
 # Prefer: ./scripts/up.sh shared  (wires outputs from primary/standby)
 # Auto-promote modes: docs/AUTO-FAILOVER.md
 # TM Azure names: profile metal-mirage-app, endpoints primary / standby
