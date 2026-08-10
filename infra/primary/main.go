@@ -444,12 +444,14 @@ func newTalosVM(
 				DisablePasswordAuthentication: pulumi.Bool(false),
 			},
 		},
+	},
 		// Azure rejects in-place osProfile.customData changes (409 PropertyChangeNotAllowed).
 		// Initial boot uses customData; later machine-config updates go through
 		// talos ConfigurationApply. Ignore drift so talosVersion / secrets rotates
 		// do not force a doomed VM update (replace VMs explicitly if first-boot
 		// customData must be rewritten).
-	}, pulumi.IgnoreChanges([]string{"osProfile.customData"}))
+		pulumi.IgnoreChanges([]string{"osProfile.customData"}),
+	)
 }
 
 func tcpAllow(name string, priority int, port, sourceCIDR string) *network.SecurityRuleTypeArgs {
