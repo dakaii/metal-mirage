@@ -312,9 +312,11 @@ upload_in_azure() {
   echo "    This can take 10–20+ minutes; waiting on az vm run-command…"
 
   # Embed URLs in the remote script (SAS has shell-hostile chars; avoid --parameters).
+  # Azure RunShellScript invokes via /bin/sh (dash) — re-exec under bash before pipefail.
   local remote_script
   remote_script="$(mktemp)"
   cat >"${remote_script}" <<EOF
+if [ -z "\${BASH_VERSION:-}" ]; then exec /bin/bash "\$0" "\$@"; fi
 set -euo pipefail
 VHD_URL=$(printf '%q' "${VHD_URL}")
 DEST=$(printf '%q' "${dest_with_sas}")
