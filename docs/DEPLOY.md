@@ -55,6 +55,11 @@ Manual equivalent (if you prefer): set `primary:talosImageId`, `adminCidr`, coun
 `PRIMARY_VM_SIZE=…`, re-probe with `FORCE_AZURE_VM_SIZE_AUTO=1`, or skip via
 `SKIP_AZURE_VM_SIZE_AUTO=1`. Probe alone: `./scripts/pick-azure-vm-size.sh eastus 4`.
 
+Machine config is pinned with `primary:talosVersion` (default `v1.9.5`, must match the
+gallery VHD). Azure forbids changing VM `customData` in place; after first create,
+config updates go through Talos `ConfigurationApply` (Pulumi ignores `osProfile.customData`
+drift). To rewrite first-boot customData, replace the VMs explicitly.
+
 ## 2. Primary (metal-sim)
 
 ```bash
