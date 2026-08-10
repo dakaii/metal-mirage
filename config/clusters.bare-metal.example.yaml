@@ -12,7 +12,8 @@ primary:
   pulumi_dir: infra/bare-metal
   profile: primary
   dry_run: true
-  install_disk: /dev/nvme0n1
+  # Matches code default (/dev/sda). Typical NVMe metal: /dev/nvme0n1.
+  install_disk: /dev/sda
   api_endpoint_ip: 192.168.1.10 # optional; defaults to first controlplane
   ingress_ip: 192.168.1.10 # MetalLB / VIP / node IP serving HTTP NodePort
   nodes:

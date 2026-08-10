@@ -14,7 +14,7 @@ Golden path: [METAL-PRIMARY.md](METAL-PRIMARY.md).
 ├─────────────────────────────────────────────────────────────┤
 │  Layer 2: (removed)    Talos replaces OS/k8s bootstrap      │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 1: Provision    azure-metal-sim | bare-metal | aks   │
+│  Layer 1: Provision    bare-metal | azure-metal-sim | aks   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -73,7 +73,7 @@ reads `config/clusters.yaml` and writes `baremetal:*` keys.
      provisioner: bare-metal
      pulumi_dir: infra/bare-metal
      dry_run: true
-     install_disk: /dev/nvme0n1
+     install_disk: /dev/sda   # often /dev/nvme0n1 on real metal
      nodes:
        - role: controlplane
          ip: 192.168.1.10

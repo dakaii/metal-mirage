@@ -2,7 +2,7 @@
 
 ## Cursor Cloud specific instructions
 
-This repo is an **Infrastructure-as-Code / GitOps** project (Pulumi Go + Talos on Azure + Flux), not a conventional app. Most of it is not "runnable" locally — the `infra/*` Pulumi programs provision real Azure resources and need Azure credentials + a Pulumi backend (`az login`, `pulumi login`). Even `pulumi preview` needs cloud auth, so treat the infra stacks as build/vet-only in the cloud VM unless Azure secrets are provided.
+This repo is an **Infrastructure-as-Code / GitOps** project (Pulumi Go + Talos + Flux) — **metal-first** bare-metal primary by default, Azure metal-sim / AKS / VPN as optional lab or DR. Most stacks are not "runnable" without a Pulumi backend; Azure-backed stacks also need `az login`. Even `pulumi preview` needs auth for cloud resources, so treat those as build/vet-only in the cloud VM unless Azure secrets are provided.
 
 **`scripts/*.sh` are operator runbooks** (run locally against Azure/Pulumi/VPN VMs). They are **not** GitHub Actions. CI lives in `.github/workflows/ci.yml` and only *checks* those scripts (shellcheck, inventory validation). Bring-up docs: `README.md`, `docs/DEPLOY.md`.
 

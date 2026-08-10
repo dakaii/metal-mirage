@@ -6,4 +6,4 @@ resources:
   - nginx-configmap.yaml
   - deployment.yaml
   - service.yaml
-  # No Ingress: portfolio path is Azure LB → Service NodePort 30080 (no Traefik).
+  # No Ingress: HTTP via NodePort 30080 (metal node IP / Azure LB / optional MetalLB).

@@ -19,6 +19,7 @@ primary:
   profile: primary
   # Offline-safe defaults (dry_run: true). Replace IPs with your hardware.
   dry_run: true
+  # Code default is /dev/sda; change for your hardware (often /dev/nvme0n1).
   install_disk: /dev/sda
   # api_endpoint_ip / ingress_ip default to the first controlplane IP when omitted.
   nodes:

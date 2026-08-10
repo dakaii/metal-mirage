@@ -33,11 +33,12 @@ Successor ideas from [fantastic-spoon](https://github.com/dakaii/fantastic-spoon
 
 | Layer | Path | Responsibility |
 |-------|------|----------------|
-| L1 primary | `infra/primary` | Talos secrets, machine config, Azure VMs, API PIP + ingress LB (→ NodePort 30080) |
-| L1 standby | `infra/standby-aks` | AKS + Velero Blob storage + identity |
-| L1 VPN / RemoteAccess | `infra/vpn-gateways` | Optional WireGuard city-exit adapter (`remote_access.provider`) |
+| L1 primary (preferred) | `infra/bare-metal` | Talos secrets/machine config on real hardware (`dry_run` offline-safe) |
+| L1 primary (lab) | `infra/primary` | Azure metal-sim VMs, API PIP + ingress LB (→ NodePort 30080) |
+| L1 standby | `infra/standby-aks` | Optional AKS + Velero Blob storage + identity |
+| L1 VPN / RemoteAccess | `infra/vpn-gateways` | Optional WireGuard city-exit (`remote_access.provider: wireguard`; default `none`) |
 | L3 | `infra/flux-bootstrap`, `gitops/` | Helm Flux install; GitRepository/Kustomizations in-repo |
-| L4 | `infra/shared` | Traffic Manager profile + optional witness Function App |
+| L4 | `infra/shared` | Optional Traffic Manager + witness Function App |
 | Product (Phase 3) | `control-plane/` | Clerk auth + Neon peers API (optional) |
 
 Provisioner switch lives in [`config/clusters.yaml`](../config/clusters.yaml). Layers above L1 do not care whether primary nodes are Azure VMs or hardware.
@@ -52,8 +53,8 @@ Provisioner switch lives in [`config/clusters.yaml`](../config/clusters.yaml). L
                priority 1      │      priority 2
                     ┌──────────▼──────────┐
                     │                     │
-           Primary (Talos / metal-sim)   AKS standby
-           ingress PIP :80               aks FQDN
+           Primary (metal / metal-sim)   AKS standby
+           ingress IP :80/:30080         aks FQDN
                     │
                     │  Flux reconciles gitops/
                     ▼
@@ -71,11 +72,11 @@ Witness Function (when enabled) probes cluster readiness (`/readyz`-style checks
 |---------|--------|-----|
 | IaC | Pulumi Go (`azure-native`, `pulumi-talos`, `pulumi-kubernetes`) | Typed programs; same language as control-plane |
 | Node OS (primary) | Talos Linux | Immutable, API-only; eliminates Ansible layer |
-| Primary compute | Azure VMs + custom Talos gallery image | Bare-metal *simulation* without home public IP |
-| Standby | AKS | Managed DR target; Velero → Azure Blob |
+| Primary compute | Bare-metal Talos (preferred); Azure metal-sim lab | Real hardware first; gallery VMs when you lack metal |
+| Standby | Optional AKS | Managed DR target; Velero → Azure Blob |
 | GitOps | Flux (Helm chart `flux2` + in-repo kustomize) | Declarative apps/infra; primary vs standby patches |
-| Failover | Traffic Manager priority, TTL 30s, HTTP `/healthz` | Simple DNS DR; not instant L4 |
-| VPN | Ubuntu 22.04 + cloud-init WireGuard | Stock clients; city tag per stack |
+| Failover | Optional Traffic Manager priority, TTL 30s, HTTP `/healthz` | Simple DNS DR; not instant L4 (needs public ingress) |
+| VPN | Opt-in Ubuntu + cloud-init WireGuard | Stock clients; off unless `remote_access.provider: wireguard` |
 | Auth/DB (optional) | Clerk + Neon | Peer minting API without building IdP/DB |
 
 ## Why Talos / no Ansible
@@ -159,17 +160,18 @@ Pushing the peer public key onto the VPN VM (`wg set` / reconciler) remains an o
 ## Repo map
 
 ```
-config/clusters.yaml     Compute + RemoteAccess switch
-infra/primary/           Talos metal-sim (Pulumi Go)
-infra/standby-aks/       AKS + Velero storage
-infra/shared/            Traffic Manager + witness
-infra/vpn-gateways/      RemoteAccess example (WireGuard)
+config/clusters.yaml     Compute + RemoteAccess switch (metal-first SoT)
+infra/bare-metal/        Preferred Talos primary (real hardware)
+infra/primary/           Azure metal-sim lab
+infra/standby-aks/       Optional AKS + Velero storage
+infra/shared/            Optional Traffic Manager + witness
+infra/vpn-gateways/      RemoteAccess example (WireGuard; opt-in)
 infra/flux-bootstrap/    Flux Helm bootstrap
-gitops/                  Flux-managed manifests
+gitops/                  Flux-managed manifests (+ optional metallb/)
 pkg/ports/               Capability contracts
 control-plane/           Clerk + Neon peer portal
-scripts/                 up / destroy / vpn / flux helpers
-docs/                    including CAPABILITY-PORTS.md
+scripts/                 up / destroy / sync-baremetal / vpn / flux helpers
+docs/                    METAL-PRIMARY.md, CAPABILITY-PORTS.md, …
 ```
 
 ## Related docs

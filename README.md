@@ -75,8 +75,7 @@ cp config/clusters.azure-metal-sim.example.yaml config/clusters.yaml
 | [docs/METAL-PRIMARY.md](docs/METAL-PRIMARY.md) | **Start here** — metal inventory, ingress, Flux |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layers, failover, VPN split |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Full bring-up (Flux, witness, VPN peers) |
-| [docs/DR.md](docs/DR.md) | Failover drill (Traffic Manager + witness) |
-| [docs/AUTO-FAILOVER.md](docs/AUTO-FAILOVER.md) | Opt-in webhook / GHA promote + RTO honesty |
+| [docs/DR.md](docs/DR.md) | Failover drill (Traffic Manager + witness); optional webhook notes in CONFIG |
 | [docs/CONFIG.md](docs/CONFIG.md) | Pulumi / env config keys |
 | [docs/BEST-PRACTICES.md](docs/BEST-PRACTICES.md) | Operator security / GitOps / teardown checklist |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Branch from `main`, open a PR; CI check names |

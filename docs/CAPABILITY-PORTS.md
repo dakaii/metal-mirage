@@ -19,11 +19,14 @@ Contracts live in [`pkg/ports`](../pkg/ports). Config seams live in
 ```
 config/clusters.yaml
         │
-        ├─ Compute.provider ──► Pulumi dir (metal-sim | bare-metal | aks)
-        ├─ RemoteAccess.provider ──► wireguard adapter | none
+        ├─ primary.provisioner ──► Pulumi dir (bare-metal | metal-sim | aks)
+        ├─ remote_access.provider ──► none (default) | wireguard adapter
         ├─ Lifecycle ──► not shipped (see “Not possible” below)
         └─ Observability ──► GitOps hints (not a driver API)
 ```
+
+**Behavior change:** omitting `remote_access.provider` used to resolve to
+`wireguard`; it now resolves to `none` (metal-first / platform-only).
 
 ## RemoteAccess (off by default; WireGuard is the example adapter)
 

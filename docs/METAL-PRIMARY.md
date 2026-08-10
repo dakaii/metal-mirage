@@ -24,7 +24,7 @@ primary:
   provisioner: bare-metal
   pulumi_dir: infra/bare-metal
   dry_run: true          # flip to false after nodes are in maintenance mode
-  install_disk: /dev/nvme0n1
+  install_disk: /dev/sda # change for your hardware (often /dev/nvme0n1)
   # api_endpoint_ip / ingress_ip optional — default to first controlplane IP
   nodes:
     - role: controlplane
@@ -36,7 +36,9 @@ remote_access:
   provider: none         # set wireguard only if you want a city-exit VM
 ```
 
-Sync into Pulumi (also done automatically by `./scripts/up.sh primary`):
+Sync into Pulumi (also done automatically by `./scripts/up.sh primary`).
+This **overwrites** `baremetal:*` keys from YAML each run (SoT) — a hand-set
+`baremetal:dryRun false` is reset if `clusters.yaml` still has `dry_run: true`.
 
 ```bash
 ./scripts/sync-baremetal-config.sh
@@ -69,19 +71,22 @@ Azure metal-sim uses an Azure LB → NodePort `30080`. On bare metal you need a 
 | **B. MetalLB L2** | Homelab LAN: advertise a VIP (see below) |
 | **C. BYO LB / kube-vip / reverse proxy** | You already have a VIP or edge proxy |
 
-### Option B — MetalLB (optional GitOps)
+### Option B — MetalLB (optional overlay)
 
 1. Pick a free LAN IP for `primary.ingress_ip` (e.g. `192.168.1.50`) and sync/up.
-2. Enable the optional overlay (after Flux is installed):
+2. Install MetalLB **controllers + CRDs** first (Helm or upstream manifests). The
+   in-repo overlay only ships pool/L2 samples and expects namespace `metallb-system`
+   to already exist — details in [`gitops/infrastructure/metallb/README.md`](../gitops/infrastructure/metallb/README.md).
+3. Edit `gitops/infrastructure/metallb/ipaddresspool.yaml` to match that IP, then:
 
 ```bash
-# Review/edit the address pool first:
-#   gitops/infrastructure/metallb/ipaddresspool.yaml
 kubectl apply -k gitops/infrastructure/metallb
-# Or add the metallb path to your cluster Flux kustomization when ready.
+# Optional later: add the metallb path to your cluster Flux kustomization
+# (only after controllers/CRDs exist, or reconcile will stuck-fail).
 ```
 
-3. Point the demo Service at MetalLB (annotation / `LoadBalancer`) — see comments in `gitops/infrastructure/metallb/README.md`. Until then, NodePort `30080` on any node still works for local drills.
+4. Change the demo Service to `type: LoadBalancer` (see metallb README). Until then,
+   NodePort `30080` on any node still works for local drills.
 
 ## 4. Flux + demo app
 
@@ -96,7 +101,9 @@ Ship **your** service: add a directory under `gitops/apps/` and include it from 
 
 ## 5. Optional cloud standby / DR
 
-Not required for metal-primary usefulness:
+Not required for metal-primary usefulness. Traffic Manager needs a **publicly
+reachable** `ingressIP` — a private LAN VIP / CGNAT home IP will not work as a
+TM endpoint without extra networking.
 
 ```bash
 ./scripts/login.sh                 # Azure + Pulumi when using AKS / TM

@@ -1,19 +1,23 @@
 # Deploy guide
 
+**Prefer metal-first:** [METAL-PRIMARY.md](METAL-PRIMARY.md) (default
+`config/clusters.yaml`). This guide covers the full multi-stack path (Azure
+metal-sim lab, AKS standby, witness, optional VPN).
+
 Config key reference: [CONFIG.md](CONFIG.md). Operator checklist: [BEST-PRACTICES.md](BEST-PRACTICES.md). Roadmap / OSS boundary: [ROADMAP.md](ROADMAP.md).
 
 ## Prerequisites
 
-- Azure CLI with a subscription
-- [Pulumi](https://www.pulumi.com/docs/install/) 3.x
-- Go 1.26.x (matches CI / `infra/*/go.mod`; see AGENTS.md)
+- [Pulumi](https://www.pulumi.com/docs/install/) 3.x + Go 1.26.x (matches CI / `infra/*/go.mod`; see AGENTS.md)
 - `talosctl`, `kubectl`, `flux` (optional until GitOps step)
-- `wg` / WireGuard tools (for VPN peer scripts)
+- Azure CLI + subscription — only for metal-sim lab, AKS standby, Traffic Manager, or WireGuard city VM
+- `wg` / WireGuard tools — only when `remote_access.provider: wireguard`
 - Domain optional (Traffic Manager gives `*.trafficmanager.net`)
 
 Auth helper (opens vendor login flows only when needed):
 
 ```bash
+./scripts/login.sh --skip-azure    # Pulumi only (metal dry-run / no Azure)
 ./scripts/login.sh                 # Azure + Pulumi
 ./scripts/login.sh --status        # report only
 ./scripts/login.sh --local-pulumi  # file-backed Pulumi state
@@ -23,7 +27,7 @@ Auth helper (opens vendor login flows only when needed):
 
 Headless / no browser: `AZURE_LOGIN_FLAGS=--use-device-code ./scripts/login.sh`
 
-## 1. Register Talos image (once)
+## 1. Register Talos image (once — Azure metal-sim lab only)
 
 ```bash
 ./scripts/register-talos-image.sh eastus
@@ -97,9 +101,14 @@ GITOPS_REPO_URL=https://github.com/dakaii/metal-mirage ./scripts/install-flux.sh
 
 After any later `./scripts/up.sh shared` (or `pulumi up` in `infra/shared`), re-run `./scripts/deploy-witness.sh` so the Function zip picks up dependency/code changes (for example `azure-storage-blob` and the durable failure counter). Pulumi alone does not redeploy the zip.
 
-## 5. VPN city exit
+## 5. VPN city exit (opt-in RemoteAccess)
+
+Default `remote_access.provider: none` — `./scripts/up.sh vpn` will **skip**
+(exit 0) until you set `provider: wireguard` in `config/clusters.yaml`. See
+[VPN.md](VPN.md) / [CAPABILITY-PORTS.md](CAPABILITY-PORTS.md).
 
 ```bash
+# config/clusters.yaml → remote_access.provider: wireguard
 cd infra/vpn-gateways
 pulumi stack init dev
 pulumi config set vpn:sshPublicKey "$(cat ~/.ssh/id_ed25519.pub)"
