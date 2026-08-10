@@ -25,11 +25,18 @@ type Node struct {
 }
 
 // PrimaryCluster is the primary stanza of config/clusters.yaml.
+// Optional bare-metal fields (api_endpoint_ip, etc.) are the single source of
+// truth synced into Pulumi by ./scripts/sync-baremetal-config.sh.
 type PrimaryCluster struct {
-	Provisioner string `yaml:"provisioner"`
-	PulumiDir   string `yaml:"pulumi_dir"`
-	Profile     string `yaml:"profile"`
-	Nodes       []Node `yaml:"nodes"`
+	Provisioner   string `yaml:"provisioner"`
+	PulumiDir     string `yaml:"pulumi_dir"`
+	Profile       string `yaml:"profile"`
+	Nodes         []Node `yaml:"nodes"`
+	APIEndpointIP string `yaml:"api_endpoint_ip"`
+	IngressIP     string `yaml:"ingress_ip"`
+	InstallDisk   string `yaml:"install_disk"`
+	// DryRun is optional; nil means default true for bare-metal offline safety.
+	DryRun *bool `yaml:"dry_run"`
 }
 
 // ClustersFile is the portable provisioner switch document.
@@ -148,4 +155,54 @@ func NodesToJSON(nodes []Node) (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+// BareMetalPulumiConfig is the resolved baremetal:* key set from clusters.yaml.
+type BareMetalPulumiConfig struct {
+	NodesJSON     string
+	APIEndpointIP string
+	IngressIP     string
+	InstallDisk   string
+	DryRun        bool
+}
+
+// ResolveBareMetalPulumiConfig maps primary: inventory fields → Pulumi keys.
+func ResolveBareMetalPulumiConfig(p PrimaryCluster) (BareMetalPulumiConfig, error) {
+	if err := ValidatePrimary(p); err != nil {
+		return BareMetalPulumiConfig{}, err
+	}
+	if p.Provisioner != "bare-metal" {
+		return BareMetalPulumiConfig{}, fmt.Errorf("provisioner is %q (want bare-metal)", p.Provisioner)
+	}
+	nodesJSON, err := NodesToJSON(p.Nodes)
+	if err != nil {
+		return BareMetalPulumiConfig{}, err
+	}
+	firstCP, err := FirstControlPlaneIP(p.Nodes)
+	if err != nil {
+		return BareMetalPulumiConfig{}, err
+	}
+	api := strings.TrimSpace(p.APIEndpointIP)
+	if api == "" {
+		api = firstCP
+	}
+	ingress := strings.TrimSpace(p.IngressIP)
+	if ingress == "" {
+		ingress = api
+	}
+	disk := strings.TrimSpace(p.InstallDisk)
+	if disk == "" {
+		disk = "/dev/sda"
+	}
+	dry := true
+	if p.DryRun != nil {
+		dry = *p.DryRun
+	}
+	return BareMetalPulumiConfig{
+		NodesJSON:     nodesJSON,
+		APIEndpointIP: api,
+		IngressIP:     ingress,
+		InstallDisk:   disk,
+		DryRun:        dry,
+	}, nil
 }

@@ -52,26 +52,26 @@ Primary exposes the demo via an Azure Load Balancer on the `ingressIP` → NodeP
 
 Workers get a public IP so Pulumi’s Talos `ConfigurationApply` (from your laptop) can reach them; control-plane node 0 uses the API PIP. Install disk is baked into machine config before VM customData.
 
-### 2b. Alternate primary: bare metal (portable L1)
+### 2b. Preferred primary: bare metal (portable L1)
 
-`./scripts/up.sh primary` follows `config/clusters.yaml` → `primary.pulumi_dir`.
-To switch off Azure metal-sim without rewriting GitOps:
+Default `config/clusters.yaml` already points at `infra/bare-metal` with
+`dry_run: true`. Inventory SoT is `primary.nodes` (synced to Pulumi — no dual edit).
+Full golden path: [METAL-PRIMARY.md](METAL-PRIMARY.md).
 
 ```bash
-# 1. Point inventory at hardware (see config/clusters.bare-metal.example.yaml)
+# 1. Edit config/clusters.yaml IPs / install_disk for your hardware
 # 2. Offline contract check (no Azure / no nodes required):
 ./scripts/validate-inventory.sh
-# 3. Also set Pulumi inventory (YAML nodes ≠ Pulumi config):
-cd infra/bare-metal && pulumi stack select dev  # or init
-pulumi config set baremetal:nodes '[{"role":"controlplane","ip":"192.168.1.10"},{"role":"worker","ip":"192.168.1.11"}]'
-pulumi config set baremetal:apiEndpointIP 192.168.1.10
-pulumi config set baremetal:dryRun true   # offline default
-cd ../..
-# 4. Bring up (dryRun generates secrets/configs only)
+# 3. Sync + pulumi up (dry_run generates secrets/configs only)
 ./scripts/up.sh primary
 ```
 
-Live apply: install Talos to maintenance mode, set `baremetal:dryRun false`, re-run `up.sh primary`.
+Live apply: install Talos to maintenance mode, set `dry_run: false` in
+`clusters.yaml`, re-run `up.sh primary`. Ingress options (NodePort / MetalLB / BYO):
+see [METAL-PRIMARY.md](METAL-PRIMARY.md).
+
+Azure metal-sim lab: copy `config/clusters.azure-metal-sim.example.yaml` over
+`config/clusters.yaml`, then follow §2 above.
 
 ## 3. Flux GitOps
 

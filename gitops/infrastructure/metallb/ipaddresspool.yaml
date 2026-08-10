@@ -1,0 +1,9 @@
+# Edit addresses to match config/clusters.yaml primary.ingress_ip (or a small range).
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: metal-mirage-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    - 192.168.1.50/32

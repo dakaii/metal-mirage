@@ -1,16 +1,11 @@
-# Example only — copy keys with `pulumi config set`, do not commit real stack YAML.
-# See docs/CONFIG.md and docs/PORTABLE-ARCHITECTURE.md
+# Example only — do not commit real stack YAML.
+# Prefer editing config/clusters.yaml then:
+#   ./scripts/sync-baremetal-config.sh
+#   ./scripts/up.sh primary
+# See docs/METAL-PRIMARY.md, docs/CONFIG.md, docs/PORTABLE-ARCHITECTURE.md
 name: metal-mirage-bare-metal
 runtime: go
 description: Thin Talos primary provisioner for real bare-metal nodes (portable L1)
 #
-# Offline / inventory demo (no hardware contact):
-#   pulumi config set baremetal:dryRun true
-#   pulumi config set baremetal:apiEndpointIP 192.168.1.10
-#   pulumi config set baremetal:ingressIP 192.168.1.10
-#   pulumi config set baremetal:nodes '[{"role":"controlplane","ip":"192.168.1.10"},{"role":"worker","ip":"192.168.1.11"}]'
-#
-# Live apply (nodes already in Talos maintenance mode):
-#   pulumi config set baremetal:dryRun false
-#   # same node / endpoint / ingress keys as above
-#   pulumi config set baremetal:installDisk /dev/nvme0n1   # hardware-specific
+# Inventory SoT is config/clusters.yaml (primary.nodes, dry_run, install_disk, …).
+# Manual pulumi config set baremetal:* is only for debugging the sync path.

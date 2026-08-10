@@ -1,6 +1,6 @@
 # metal-mirage architecture
 
-Portable hybrid Kubernetes platform: **Talos Linux** on Azure VMs today (bare-metal simulation), **AKS** as standby, **Flux** GitOps, **Traffic Manager** failover, and an optional **RemoteAccess** plane (WireGuard city-exit is the shipped example). Optional **Clerk + Neon** peer portal for personal peer minting.
+Portable hybrid Kubernetes platform: **Talos Linux** on bare metal (preferred) or Azure VMs (metal-sim lab), optional **AKS** standby, **Flux** GitOps, optional **Traffic Manager** failover, and an optional **RemoteAccess** plane (WireGuard city-exit is the shipped example; **off by default**). Optional **Clerk + Neon** peer portal for personal peer minting.
 
 Capability seams: [CAPABILITY-PORTS.md](CAPABILITY-PORTS.md).
 
@@ -90,23 +90,18 @@ VPN still uses cloud-init on Ubuntu because WireGuard city exits are ordinary Li
 
 ## Metal-sim vs real metal
 
-**Today (`provisioner: azure-metal-sim`):**
+**Preferred (`provisioner: bare-metal`):** see [METAL-PRIMARY.md](METAL-PRIMARY.md) — inventory SoT in `config/clusters.yaml`, synced via `./scripts/sync-baremetal-config.sh`.
+
+**Lab without hardware (`provisioner: azure-metal-sim`):**
 
 - Register a Talos Azure image once (`scripts/register-talos-image.sh`).
 - `infra/primary` creates VNet/NSG, static API + ingress public IPs, control-plane/worker VMs (`Standard_B2s` by default), applies Talos config, bootstraps the cluster.
 - Machine config patch sets `machine.install.disk` (default `/dev/sda` for Azure Gen2 metal-sim; override with `primary:installDisk`).
 - Exports follow the portable contract: `kubeconfig` (secret), `apiLoadBalancerIP` / ingress IP, `clusterEndpoint`, `provisioner`.
 
-**Bare metal (`provisioner: bare-metal` → `infra/bare-metal`):**
+**Bare metal details (`infra/bare-metal`):** default committed path. Edit `primary.nodes` (see `config/clusters.bare-metal.example.yaml`); sync with `./scripts/sync-baremetal-config.sh` — do not dual-maintain Pulumi inventory. Offline `dry_run: true` demos secrets/machine configs; set `dry_run: false` after nodes are in Talos maintenance mode. Optional DR: retarget Traffic Manager to metal `ingressIP`. Ingress options: [METAL-PRIMARY.md](METAL-PRIMARY.md).
 
-1. Install Talos on hardware (ISO / PXE / Omni) so nodes are in maintenance mode.
-2. Set `config/clusters.yaml` to `provisioner: bare-metal`, `pulumi_dir: infra/bare-metal`, and a `nodes:` inventory (see `config/clusters.bare-metal.example.yaml`).
-3. `./scripts/validate-inventory.sh` checks the contract offline (no Azure / no hardware).
-4. Thin Pulumi stack generates the same Talos machine-secrets pattern; default `baremetal:dryRun true` demos offline (exports portable outputs + machine configs without contacting nodes). Set `dryRun false` to apply + bootstrap.
-5. Retarget Traffic Manager primary endpoint to the metal `ingressIP`.
-6. Destroy Azure metal-sim spend via `./scripts/destroy.sh` (sibling primary stack cleanup supported).
-
-Unchanged: Flux manifests, demo app, monitoring rules, VPN city stack (unless you also move exits off Azure).
+Unchanged when switching L1: Flux manifests, demo app, monitoring rules. VPN city stack stays opt-in (`remote_access.provider: wireguard`).
 
 See [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) for the output contract, inventory fields, and hybrid matrix.
 

@@ -25,18 +25,21 @@ config/clusters.yaml
         └─ Observability ──► GitOps hints (not a driver API)
 ```
 
-## RemoteAccess (WireGuard example)
+## RemoteAccess (off by default; WireGuard is the example adapter)
+
+Default committed config uses `provider: none` (metal-first / platform-only).
+Empty `remote_access.provider` also resolves to `none`.
 
 ```yaml
 remote_access:
-  provider: wireguard   # or: none
+  provider: none        # default — or: wireguard
   pulumi_dir: infra/vpn-gateways
 ```
 
 | Provider | Effect |
 |----------|--------|
+| `none` | Skip the VPN stack — platform / GitOps / DR only (default) |
 | `wireguard` | `./scripts/up.sh vpn` (or `remote_access`) brings up the city-exit VM |
-| `none` | Skip the VPN stack — platform / GitOps / DR only |
 
 Client profile minting for WireGuard stays in
 [`control-plane/internal/tunnel`](../control-plane/internal/tunnel) — see

@@ -1,18 +1,20 @@
-# Example primary switch to real hardware.
-# Copy the primary: block into config/clusters.yaml (or replace that file) when ready.
+# Example / reference bare-metal primary (same shape as default config/clusters.yaml).
+# Edit IPs and disks for your hardware, then:
+#   ./scripts/validate-inventory.sh
+#   ./scripts/sync-baremetal-config.sh   # or just ./scripts/up.sh primary
+#   # Install Talos (ISO/PXE/Omni) → maintenance mode, then:
+#   # set dry_run: false below and re-sync / up
 #
-# Layers above L1 (Flux / demo / shared failover wiring) stay the same.
-# Offline demo: leave dryRun=true in the bare-metal Pulumi stack (default).
-#
-# IMPORTANT — two inventories:
-#   - `nodes:` here is for ./scripts/validate-inventory.sh only.
-#   - Live Pulumi still needs: pulumi -C infra/bare-metal config set baremetal:nodes '[...]'
-#     (see infra/bare-metal/Pulumi.yaml.example and docs/CONFIG.md / PORTABLE-ARCHITECTURE.md).
+# Single inventory: primary.nodes here is SoT for Pulumi baremetal:* keys.
 
 primary:
   provisioner: bare-metal
   pulumi_dir: infra/bare-metal
   profile: primary
+  dry_run: true
+  install_disk: /dev/nvme0n1
+  api_endpoint_ip: 192.168.1.10 # optional; defaults to first controlplane
+  ingress_ip: 192.168.1.10 # MetalLB / VIP / node IP serving HTTP NodePort
   nodes:
     - role: controlplane
       ip: 192.168.1.10
@@ -27,6 +29,9 @@ standby:
 shared:
   pulumi_dir: infra/shared
 
+remote_access:
+  provider: none
+  pulumi_dir: infra/vpn-gateways
+
 vpn:
   pulumi_dir: infra/vpn-gateways
-  # City/region: Pulumi vpn:city / vpn:location (not read from this file).

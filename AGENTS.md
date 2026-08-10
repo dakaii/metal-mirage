@@ -14,11 +14,13 @@ Auth: `./scripts/login.sh` (Azure + Pulumi; `--status`, `--local-pulumi`, option
 - Every `infra/*` dir and `control-plane/` is a **separate Go module** (no `go.work`); run `go build` / `go vet` / `go test` per-module.
 
 ### Primary provisioner switch
-- `config/clusters.yaml` → `primary.pulumi_dir` selects `infra/primary` (azure-metal-sim) or `infra/bare-metal`.
-- `remote_access.provider` (`wireguard` \| `none`) selects the optional RemoteAccess adapter (`docs/CAPABILITY-PORTS.md`).
+- Default `config/clusters.yaml` is **bare-metal** + `remote_access.provider: none` (metal-first). Golden path: `docs/METAL-PRIMARY.md`.
+- `primary.pulumi_dir` selects `infra/bare-metal` (preferred) or `infra/primary` (azure-metal-sim lab).
+- Bare-metal inventory SoT is `primary.nodes` in `clusters.yaml`; `./scripts/sync-baremetal-config.sh` (also via `./scripts/up.sh primary`) writes `baremetal:*` Pulumi keys — do not dual-maintain.
+- `remote_access.provider` (`none` default \| `wireguard`) selects the optional RemoteAccess adapter (`docs/CAPABILITY-PORTS.md`).
 - `./scripts/up.sh primary` / `./scripts/destroy.sh primary` resolve that path via `scripts/lib.sh`.
 - Offline inventory + ports check (no Azure/hardware): `./scripts/validate-inventory.sh`.
-- Bare-metal example: `config/clusters.bare-metal.example.yaml`. Details: `docs/PORTABLE-ARCHITECTURE.md`.
+- Examples: `config/clusters.bare-metal.example.yaml`, `config/clusters.azure-metal-sim.example.yaml`.
 
 ### CI-equivalent checks (see `.github/workflows/ci.yml` and `CONTRIBUTING.md`)
 - Per Go module (`infra/primary`, `infra/bare-metal`, `infra/standby-aks`, `infra/shared`, `infra/vpn-gateways`, `infra/flux-bootstrap`, `control-plane`, `pkg/ports`): `go mod tidy` (must leave `go.mod`/`go.sum` clean), `gofmt -l`, `go vet ./...`, `go build ./...`.
