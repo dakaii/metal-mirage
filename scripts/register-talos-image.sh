@@ -19,7 +19,8 @@
 #   TALOS_IMAGE_RG         Gallery / storage resource group (default: talos-images)
 #   TALOS_IMAGE_GALLERY    Gallery name (default: talosgallery)
 #   TALOS_IMAGE_DEF        Image definition (default: talos)
-#   TALOS_HELPER_VM_SIZE   Helper VM size for --in-azure (default: Standard_B2s)
+#   TALOS_HELPER_VM_SIZE   Prefer this helper VM size first (--in-azure)
+#   TALOS_HELPER_VM_SIZES  Space-separated fallback list (overrides built-in list)
 set -euo pipefail
 
 usage() {
@@ -29,7 +30,8 @@ Usage: ./scripts/register-talos-image.sh [--in-azure] [location] [talos-version]
   --in-azure   Download/decompress/upload inside a temporary Azure VM
                (recommended on laptops — avoids a multi-GB local copy).
 
-Env: TALOS_SCHEMATIC_ID, TALOS_IMAGE_URL, TALOS_IMAGE_RG, TALOS_HELPER_VM_SIZE
+Env: TALOS_SCHEMATIC_ID, TALOS_IMAGE_URL, TALOS_IMAGE_RG,
+     TALOS_HELPER_VM_SIZE, TALOS_HELPER_VM_SIZES
 EOF
 }
 
@@ -63,7 +65,6 @@ RG="${TALOS_IMAGE_RG:-talos-images}"
 GALLERY="${TALOS_IMAGE_GALLERY:-talosgallery}"
 IMAGE_DEF="${TALOS_IMAGE_DEF:-talos}"
 IMAGE_VERSION="${TALOS_VERSION#v}"
-HELPER_VM_SIZE="${TALOS_HELPER_VM_SIZE:-Standard_B2s}"
 HELPER_RG="${RG}-helper"
 HELPER_VM="talos-vhd-helper"
 
@@ -222,7 +223,14 @@ upload_in_azure() {
   dest_with_sas="${BLOB_URL}?${sas}"
 
   echo "==> Creating helper resource group ${HELPER_RG}"
-  az group create --name "${HELPER_RG}" --location "${LOCATION}" --output none
+  if ! az group create --name "${HELPER_RG}" --location "${LOCATION}" --output none 2>/tmp/talos-helper-rg.err; then
+    if grep -qi 'ResourceGroupBeingDeleted' /tmp/talos-helper-rg.err; then
+      echo "helper RG ${HELPER_RG} is still deleting — wait then retry:" >&2
+      echo "  az group wait --deleted --resource-group ${HELPER_RG}" >&2
+    fi
+    cat /tmp/talos-helper-rg.err >&2
+    exit 1
+  fi
 
   cleanup_helper() {
     echo "==> Deleting helper resource group ${HELPER_RG}"
@@ -230,19 +238,62 @@ upload_in_azure() {
   }
   trap cleanup_helper EXIT
 
-  echo "==> Creating helper VM ${HELPER_VM} (${HELPER_VM_SIZE}, 64GiB OS disk, no public IP)"
+  # Capacity varies by region; try a small list (SkuNotAvailable is common for B-series).
+  local sizes=() size chosen="" err
+  err="$(mktemp)"
+  if [[ -n "${TALOS_HELPER_VM_SIZES:-}" ]]; then
+    # shellcheck disable=SC2206
+    sizes=(${TALOS_HELPER_VM_SIZES})
+  else
+    if [[ -n "${TALOS_HELPER_VM_SIZE:-}" ]]; then
+      sizes+=("${TALOS_HELPER_VM_SIZE}")
+    fi
+    sizes+=(
+      Standard_D2s_v5
+      Standard_D2s_v4
+      Standard_D2s_v3
+      Standard_B2ms
+      Standard_B2s
+      Standard_DS2_v2
+    )
+  fi
+
   # run-command does not need SSH/public IP; VHD never touches the laptop.
-  az vm create \
-    --resource-group "${HELPER_RG}" \
-    --name "${HELPER_VM}" \
-    --location "${LOCATION}" \
-    --image Ubuntu2204 \
-    --size "${HELPER_VM_SIZE}" \
-    --os-disk-size-gb 64 \
-    --public-ip-address "" \
-    --admin-username azureuser \
-    --generate-ssh-keys \
-    --output none
+  for size in "${sizes[@]}"; do
+    echo "==> Creating helper VM ${HELPER_VM} (${size}, 64GiB OS disk, no public IP)"
+    if az vm create \
+      --resource-group "${HELPER_RG}" \
+      --name "${HELPER_VM}" \
+      --location "${LOCATION}" \
+      --image Ubuntu2204 \
+      --size "${size}" \
+      --os-disk-size-gb 64 \
+      --public-ip-address "" \
+      --admin-username azureuser \
+      --generate-ssh-keys \
+      --only-show-errors \
+      --output none 2>"${err}"; then
+      chosen="${size}"
+      break
+    fi
+    if grep -qiE 'SkuNotAvailable|ZonalAllocationFailed|AllocationFailed' "${err}"; then
+      echo "    size ${size} unavailable in ${LOCATION}; trying next…"
+      continue
+    fi
+    echo "helper VM create failed:" >&2
+    cat "${err}" >&2
+    rm -f "${err}"
+    exit 1
+  done
+  rm -f "${err}"
+
+  if [[ -z "${chosen}" ]]; then
+    echo "no helper VM size available in ${LOCATION}." >&2
+    echo "  Retry with e.g. TALOS_HELPER_VM_SIZE=Standard_D4s_v3 or another region." >&2
+    echo "  List sizes: az vm list-skus --location ${LOCATION} --size Standard_D --resource-type virtualMachines -o table" >&2
+    exit 1
+  fi
+  echo "==> Helper VM ready (${chosen})"
 
   echo "==> Helper VM downloading + uploading VHD (Image Factory → page blob)"
   echo "    This can take 10–20+ minutes; waiting on az vm run-command…"
