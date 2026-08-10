@@ -48,6 +48,7 @@ Short, actionable checklist for operators and contributors. Scope is **self-host
 | After control-plane `POST /api/peers`, run `scripts/vpn-reconcile-peers.sh` | API writes Neon only; VM is a projection |
 | Default reconcile without `--prune` | Keeps bootstrap-only peers; prune only when DB is intentional SoT |
 | Practice failover with [DR.md](DR.md) + `./scripts/failover-promote.sh` | TM DNS TTL + witness logs ≠ automatic cutover; script owns scale/TM toggles |
+| Keep auto-promote **opt-in** ([AUTO-FAILOVER.md](AUTO-FAILOVER.md)); no auto-failback | Avoid flapping; `FAILOVER_AUTO_PROMOTE` + HMAC/PAT; Function never calls ARM |
 
 ## GitOps (Flux)
 

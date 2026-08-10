@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Operator helper for portfolio failover: warm standby demo + optional TM primary disable.
 #
-# Does NOT auto-run from the witness Function. Wire FAILOVER_WEBHOOK_URL to something
-# that invokes this script (or run it by hand after FAILOVER_CANDIDATE / Drill A).
+# Does NOT auto-run from the witness Function by default. Opt-in paths:
+#   - FAILOVER_WEBHOOK_URL / FAILOVER_GITHUB_* → runner (see docs/AUTO-FAILOVER.md)
+#   - .github/workflows/failover-promote.yml (workflow_dispatch / repository_dispatch)
+#   - run this script by hand after FAILOVER_CANDIDATE / Drill A
 #
 # Usage:
 #   ./scripts/failover-promote.sh              # scale standby demo up (default)
@@ -10,7 +12,8 @@
 #   ./scripts/failover-promote.sh --failback   # scale cold + re-enable primary TM
 #   ./scripts/failover-promote.sh --dry-run
 #
-# Requires: kubectl (standby kubeconfig), pulumi; az when touching Traffic Manager.
+# Requires: kubectl (standby kubeconfig); az when touching Traffic Manager unless
+# TM_* env overrides are set. Pulumi is optional when TM_* + kubeconfig are provided.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib.sh
@@ -38,6 +41,10 @@ usage: ./scripts/failover-promote.sh [--promote|--failback] [--disable-primary-t
 Env:
   PULUMI_STACK           Pulumi stack (default: dev)
   STANDBY_KUBECONFIG     Path to standby kubeconfig (default: .secrets/standby.kubeconfig)
+  FAILOVER_REPLICAS      Default replica count for --promote
+  TM_RESOURCE_GROUP      Optional: skip Pulumi for TM updates (CI / automation)
+  TM_PROFILE_NAME        Optional: Traffic Manager profile name
+  TM_PRIMARY_ENDPOINT    Optional: primary endpoint name (default: primary)
 EOF
   exit 1
 }
@@ -58,15 +65,21 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-need pulumi "Install: https://www.pulumi.com/docs/install/"
-need kubectl
+if [[ "${DRY_RUN}" -eq 0 ]]; then
+  need kubectl
+fi
 
 if [[ ! -f "${KUBECONFIG_PATH}" ]]; then
-  echo "missing standby kubeconfig: ${KUBECONFIG_PATH}" >&2
-  echo "  pulumi -C $(resolve_pulumi_dir standby) stack output kubeconfig --show-secrets > .secrets/standby.kubeconfig" >&2
-  exit 1
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    echo "note: missing standby kubeconfig ${KUBECONFIG_PATH} (ok for --dry-run)" >&2
+  else
+    echo "missing standby kubeconfig: ${KUBECONFIG_PATH}" >&2
+    echo "  pulumi -C $(resolve_pulumi_dir standby) stack output kubeconfig --show-secrets > .secrets/standby.kubeconfig" >&2
+    exit 1
+  fi
+else
+  export KUBECONFIG="${KUBECONFIG_PATH}"
 fi
-export KUBECONFIG="${KUBECONFIG_PATH}"
 
 run() {
   if [[ "${DRY_RUN}" -eq 1 ]]; then
@@ -76,52 +89,76 @@ run() {
   "$@"
 }
 
+tm_env_complete() {
+  [[ -n "${TM_RESOURCE_GROUP:-}" && -n "${TM_PROFILE_NAME:-}" ]]
+}
+
 tm_primary_endpoint_name() {
+  if [[ -n "${TM_PRIMARY_ENDPOINT:-}" ]]; then
+    printf '%s\n' "${TM_PRIMARY_ENDPOINT}"
+    return 0
+  fi
   # Prefer stack export; fall back to the stable name set in infra/shared.
   local ep=""
-  ep="$(
-    cd "${ROOT}/infra/shared" || exit 0
-    pulumi stack select "${STACK}" >/dev/null 2>&1 || exit 0
-    pulumi stack output trafficManagerPrimaryEndpoint 2>/dev/null || exit 0
-  )"
+  if command -v pulumi >/dev/null 2>&1; then
+    ep="$(
+      cd "${ROOT}/infra/shared" || exit 0
+      pulumi stack select "${STACK}" >/dev/null 2>&1 || exit 0
+      pulumi stack output trafficManagerPrimaryEndpoint 2>/dev/null || exit 0
+    )"
+  fi
   if [[ -z "${ep}" || "${ep}" == "null" ]]; then
     ep="primary"
   fi
   printf '%s\n' "${ep}"
 }
 
-tm_set_endpoint_status() {
-  # tm_set_endpoint_status <endpoint-name> <Enabled|Disabled>
-  local ep="$1" status="$2" rg="<resourceGroupName>" profile="<trafficManagerProfileName>"
+tm_resolve_names() {
+  # Sets TM_RG / TM_PROFILE for callers. Prefers TM_* env (automation), else Pulumi.
+  if tm_env_complete; then
+    TM_RG="${TM_RESOURCE_GROUP}"
+    TM_PROFILE="${TM_PROFILE_NAME}"
+    return 0
+  fi
   if [[ "${DRY_RUN}" -eq 1 ]]; then
-    # Resolve real names when the shared stack is available; otherwise keep placeholders.
-    if (
+    TM_RG="<resourceGroupName>"
+    TM_PROFILE="metal-mirage-app"
+    if command -v pulumi >/dev/null 2>&1 && (
       cd "${ROOT}/infra/shared" && pulumi stack select "${STACK}" >/dev/null 2>&1
     ); then
-      rg="$(
+      TM_RG="$(
         cd "${ROOT}/infra/shared" && pulumi stack output resourceGroupName 2>/dev/null || echo "<resourceGroupName>"
       )"
-      profile="$(
+      TM_PROFILE="$(
         cd "${ROOT}/infra/shared" && pulumi stack output trafficManagerProfileName 2>/dev/null || echo "metal-mirage-app"
       )"
-      [[ -n "${rg}" && "${rg}" != "null" ]] || rg="<resourceGroupName>"
-      [[ -n "${profile}" && "${profile}" != "null" ]] || profile="metal-mirage-app"
-    else
-      profile="metal-mirage-app"
+      [[ -n "${TM_RG}" && "${TM_RG}" != "null" ]] || TM_RG="<resourceGroupName>"
+      [[ -n "${TM_PROFILE}" && "${TM_PROFILE}" != "null" ]] || TM_PROFILE="metal-mirage-app"
     fi
-    echo "==> Traffic Manager endpoint ${ep} → ${status} (profile=${profile} rg=${rg})"
-    echo "DRY-RUN: az network traffic-manager endpoint update --name ${ep} --profile-name ${profile} --resource-group ${rg} --type externalEndpoints --endpoint-status ${status} --output none"
+    return 0
+  fi
+  need pulumi "Install: https://www.pulumi.com/docs/install/ (or set TM_RESOURCE_GROUP + TM_PROFILE_NAME)"
+  select_stack infra/shared
+  TM_RG="$(require_stack_output infra/shared resourceGroupName "run ./scripts/up.sh shared")"
+  TM_PROFILE="$(require_stack_output infra/shared trafficManagerProfileName "re-run ./scripts/up.sh shared after this change (stable TM names)")"
+}
+
+tm_set_endpoint_status() {
+  # tm_set_endpoint_status <endpoint-name> <Enabled|Disabled>
+  local ep="$1" status="$2"
+  local TM_RG TM_PROFILE
+  tm_resolve_names
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    echo "==> Traffic Manager endpoint ${ep} → ${status} (profile=${TM_PROFILE} rg=${TM_RG})"
+    echo "DRY-RUN: az network traffic-manager endpoint update --name ${ep} --profile-name ${TM_PROFILE} --resource-group ${TM_RG} --type externalEndpoints --endpoint-status ${status} --output none"
     return 0
   fi
   need az "Install Azure CLI: https://learn.microsoft.com/cli/azure/install-azure-cli"
-  select_stack infra/shared
-  rg="$(require_stack_output infra/shared resourceGroupName "run ./scripts/up.sh shared")"
-  profile="$(require_stack_output infra/shared trafficManagerProfileName "re-run ./scripts/up.sh shared after this change (stable TM names)")"
-  echo "==> Traffic Manager endpoint ${ep} → ${status} (profile=${profile} rg=${rg})"
+  echo "==> Traffic Manager endpoint ${ep} → ${status} (profile=${TM_PROFILE} rg=${TM_RG})"
   az network traffic-manager endpoint update \
     --name "${ep}" \
-    --profile-name "${profile}" \
-    --resource-group "${rg}" \
+    --profile-name "${TM_PROFILE}" \
+    --resource-group "${TM_RG}" \
     --type externalEndpoints \
     --endpoint-status "${status}" \
     --output none

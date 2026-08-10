@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/pulumi/pulumi-azure-native-sdk/network/v2"
@@ -112,6 +113,20 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 	primaryAPI := cfg.Require("primaryAPIURL")
 	failureThreshold := cfgGet(cfg, "witnessFailureThreshold", "3")
 	failoverWebhook := strings.TrimSpace(cfgGet(cfg, "failoverWebhookURL", ""))
+	failoverHMAC := strings.TrimSpace(cfgGet(cfg, "failoverWebhookHMACSecret", ""))
+	failoverGitHubRepo := strings.TrimSpace(cfgGet(cfg, "failoverGitHubRepo", ""))
+	failoverGitHubToken := strings.TrimSpace(cfgGet(cfg, "failoverGitHubToken", ""))
+	if (failoverGitHubRepo == "") != (failoverGitHubToken == "") {
+		return fmt.Errorf("shared:failoverGitHubRepo and shared:failoverGitHubToken must both be set (or both empty); see docs/AUTO-FAILOVER.md")
+	}
+	if failoverHMAC != "" && failoverWebhook == "" {
+		return fmt.Errorf("shared:failoverWebhookHMACSecret requires shared:failoverWebhookURL")
+	}
+	if failoverGitHubRepo != "" {
+		if strings.Count(failoverGitHubRepo, "/") != 1 || strings.HasPrefix(failoverGitHubRepo, "/") || strings.HasSuffix(failoverGitHubRepo, "/") {
+			return fmt.Errorf("shared:failoverGitHubRepo must be owner/name, got %q", failoverGitHubRepo)
+		}
+	}
 	stateContainer := "witness-state"
 
 	sa, err := storage.NewStorageAccount(ctx, "witnesssa", &storage.StorageAccountArgs{
@@ -174,7 +189,16 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 		Reserved:          pulumi.Bool(true),
 		SiteConfig: &web.SiteConfigArgs{
 			LinuxFxVersion: pulumi.String("PYTHON|3.11"),
-			AppSettings:    witnessAppSettings(secretConn, primaryAPI, failureThreshold, stateContainer, failoverWebhook),
+			AppSettings: witnessAppSettings(
+				secretConn,
+				primaryAPI,
+				failureThreshold,
+				stateContainer,
+				failoverWebhook,
+				failoverHMAC,
+				failoverGitHubRepo,
+				failoverGitHubToken,
+			),
 		},
 	})
 	if err != nil {
@@ -186,10 +210,15 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 	ctx.Export("witnessStateContainer", pulumi.String(stateContainer))
 	ctx.Export("primaryAPIURL", pulumi.String(primaryAPI))
 	ctx.Export("failoverWebhookConfigured", pulumi.Bool(failoverWebhook != ""))
+	ctx.Export("failoverGitHubDispatchConfigured", pulumi.Bool(failoverGitHubRepo != "" && failoverGitHubToken != ""))
 	return nil
 }
 
-func witnessAppSettings(secretConn pulumi.StringOutput, primaryAPI, failureThreshold, stateContainer, failoverWebhook string) web.NameValuePairArray {
+func witnessAppSettings(
+	secretConn pulumi.StringOutput,
+	primaryAPI, failureThreshold, stateContainer,
+	failoverWebhook, failoverHMAC, failoverGitHubRepo, failoverGitHubToken string,
+) web.NameValuePairArray {
 	settings := web.NameValuePairArray{
 		&web.NameValuePairArgs{Name: pulumi.String("FUNCTIONS_EXTENSION_VERSION"), Value: pulumi.String("~4")},
 		&web.NameValuePairArgs{Name: pulumi.String("FUNCTIONS_WORKER_RUNTIME"), Value: pulumi.String("python")},
@@ -203,6 +232,24 @@ func witnessAppSettings(secretConn pulumi.StringOutput, primaryAPI, failureThres
 		settings = append(settings, &web.NameValuePairArgs{
 			Name:  pulumi.String("FAILOVER_WEBHOOK_URL"),
 			Value: pulumi.ToSecret(failoverWebhook).(pulumi.StringOutput),
+		})
+	}
+	if failoverHMAC != "" {
+		settings = append(settings, &web.NameValuePairArgs{
+			Name:  pulumi.String("FAILOVER_WEBHOOK_HMAC_SECRET"),
+			Value: pulumi.ToSecret(failoverHMAC).(pulumi.StringOutput),
+		})
+	}
+	if failoverGitHubRepo != "" {
+		settings = append(settings, &web.NameValuePairArgs{
+			Name:  pulumi.String("FAILOVER_GITHUB_REPO"),
+			Value: pulumi.String(failoverGitHubRepo),
+		})
+	}
+	if failoverGitHubToken != "" {
+		settings = append(settings, &web.NameValuePairArgs{
+			Name:  pulumi.String("FAILOVER_GITHUB_TOKEN"),
+			Value: pulumi.ToSecret(failoverGitHubToken).(pulumi.StringOutput),
 		})
 	}
 	return settings

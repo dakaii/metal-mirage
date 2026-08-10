@@ -96,10 +96,13 @@ AKS enables OIDC + workload identity. Velero storage uses a user-assigned identi
 | `shared:appDomain` | no | — | Custom domain hint export only |
 | `shared:enableWitness` | no | `true` | Set `false`/`0`/`no` to skip Function App |
 | `shared:witnessFailureThreshold` | no | `3` | Consecutive failed `/readyz` probes before `FAILOVER_CANDIDATE` |
-| `shared:failoverWebhookURL` | no | — | Optional HTTPS webhook; POSTed once when the threshold is crossed (use `pulumi config set --secret`) |
+| `shared:failoverWebhookURL` | no | — | Optional HTTPS webhook; POSTed once at threshold (use `--secret`) — [AUTO-FAILOVER.md](AUTO-FAILOVER.md) |
+| `shared:failoverWebhookHMACSecret` | no | — | Optional HMAC for `X-Metal-Mirage-Signature` (`--secret`) |
+| `shared:failoverGitHubRepo` | no | — | Optional `owner/repo` for `repository_dispatch` |
+| `shared:failoverGitHubToken` | no | — | Optional GitHub token for dispatch (`--secret`); fine-grained PAT on that repo with **Contents: Read and write** (see [AUTO-FAILOVER.md](AUTO-FAILOVER.md)) |
 | `shared:location` | no | `eastus` | |
 
-Witness consecutive-failure state is stored in a private blob container (`witness-state`) on the Function storage account — not `/tmp` — so Consumption (Y1) cold starts keep the counter. After changing witness code or `failoverWebhookURL`, re-run `./scripts/deploy-witness.sh` (and `pulumi up` shared for app settings).
+Witness consecutive-failure state is stored in a private blob container (`witness-state`) on the Function storage account — not `/tmp` — so Consumption (Y1) cold starts keep the counter. After changing witness code or failover notify settings, re-run `./scripts/deploy-witness.sh` (and `pulumi up` shared for app settings).
 
 `./scripts/up.sh shared` and `./scripts/up.sh all` wire ingress IP / API URL / standby FQDN from stack outputs when present.
 

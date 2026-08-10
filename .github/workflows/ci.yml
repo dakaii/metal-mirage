@@ -82,6 +82,17 @@ jobs:
       - name: validate inventory (offline)
         run: ./scripts/validate-inventory.sh
 
+  witness-notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: unit tests (notify helpers)
+        working-directory: infra/shared/witness
+        run: python -m unittest -v test_notify.py
+
   actionlint:
     runs-on: ubuntu-latest
     steps:
