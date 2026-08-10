@@ -78,11 +78,33 @@ func TestLoadClustersFileDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("default clusters.yaml invalid: %v", err)
 	}
+	if doc.Primary.Provisioner != "bare-metal" {
+		t.Fatalf("got provisioner %q (want bare-metal)", doc.Primary.Provisioner)
+	}
+	if doc.Primary.PulumiDir != "infra/bare-metal" {
+		t.Fatalf("got pulumi_dir %q", doc.Primary.PulumiDir)
+	}
+	cfg, err := ResolveBareMetalPulumiConfig(doc.Primary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.DryRun {
+		t.Fatal("default dry_run should be true")
+	}
+	if cfg.APIEndpointIP != "192.168.1.10" || cfg.IngressIP != "192.168.1.10" {
+		t.Fatalf("endpoints: api=%q ingress=%q", cfg.APIEndpointIP, cfg.IngressIP)
+	}
+}
+
+func TestLoadClustersAzureExample(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join("..", "..", "config", "clusters.azure-metal-sim.example.yaml")
+	doc, err := LoadClustersFile(path)
+	if err != nil {
+		t.Fatalf("azure example invalid: %v", err)
+	}
 	if doc.Primary.Provisioner != "azure-metal-sim" {
 		t.Fatalf("got provisioner %q", doc.Primary.Provisioner)
-	}
-	if doc.Primary.PulumiDir != "infra/primary" {
-		t.Fatalf("got pulumi_dir %q", doc.Primary.PulumiDir)
 	}
 }
 
@@ -137,6 +159,7 @@ func TestExampleFilesExist(t *testing.T) {
 	for _, p := range []string{
 		filepath.Join("..", "..", "config", "clusters.yaml"),
 		filepath.Join("..", "..", "config", "clusters.bare-metal.example.yaml"),
+		filepath.Join("..", "..", "config", "clusters.azure-metal-sim.example.yaml"),
 	} {
 		if _, err := os.Stat(p); err != nil {
 			t.Fatalf("missing %s: %v", p, err)

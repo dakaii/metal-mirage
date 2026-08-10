@@ -86,6 +86,10 @@ vpn_dir() {
 
 case "${TARGET}" in
   primary)
+    # bare-metal: config/clusters.yaml is SoT — sync into Pulumi before up.
+    if [[ "$(yaml_section_key primary provisioner | tr -d '[:space:]')" == "bare-metal" ]]; then
+      "${ROOT}/scripts/sync-baremetal-config.sh"
+    fi
     up_one "$(primary_dir)"
     ;;
   standby)
@@ -105,6 +109,9 @@ case "${TARGET}" in
     up_one "${dir}"
     ;;
   all)
+    if [[ "$(yaml_section_key primary provisioner | tr -d '[:space:]')" == "bare-metal" ]]; then
+      "${ROOT}/scripts/sync-baremetal-config.sh"
+    fi
     up_one "$(primary_dir)"
     up_one "$(standby_dir)"
     wire_shared_from_outputs

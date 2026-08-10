@@ -2,7 +2,7 @@
 
 In-repo tracking for the open-source platform. Prefer this file over a flood of GitHub issues.
 
-**Scope rule:** everything here must keep the stack **usable standalone** (Pulumi + Talos metal-sim + Flux + optional VPN + optional peer API). Paid product surfaces stay out of this repo.
+**Scope rule:** everything here must keep the stack **usable standalone** (Pulumi + Talos bare-metal preferred / metal-sim lab + Flux + optional VPN + optional peer API). Paid product surfaces stay out of this repo.
 
 ## Now (OSS core — must work)
 
@@ -15,7 +15,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 | Optional Phase 3 demo: Clerk + Neon peer registry + WireGuard profile exports in `control-plane/` | Minimal API only; clearly optional |
 | Capability ports: `pkg/ports` + `remote_access.provider` (`wireguard` \| `none`); WireGuard as RemoteAccess example | Ship / document limits |
 | CI: Go build/fmt/vet matrix (incl. `infra/bare-metal` + inventory tests) + kustomize + shellcheck + actionlint + gitleaks; PRs into `main` ([CONTRIBUTING.md](../CONTRIBUTING.md)) | Keep green; no Azure secrets in CI |
-| Portable L1 switch: `azure-metal-sim` → `infra/bare-metal` + inventory contract + dryRun offline demo | Done (live metal still needs hardware + `dryRun=false`) — [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) |
+| Portable L1: bare-metal default + inventory SoT sync (`sync-baremetal-config`) + dryRun offline demo; Azure metal-sim as lab | Done (live metal still needs hardware + `dry_run=false`) — [METAL-PRIMARY.md](METAL-PRIMARY.md) |
 
 ## Next (OSS hardening)
 
@@ -30,7 +30,8 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 - Contributor UX: secret-scan hygiene — `.gitleaks.toml`, safer `.env.example` placeholders, `credentials-velero` gitignore, local `gitleaks` in CONTRIBUTING
 - Opt-in auto-promote glue: enriched witness webhook + optional HMAC + GitHub `repository_dispatch`; `.github/workflows/failover-promote.yml` (dry-run unless `FAILOVER_AUTO_PROMOTE=true`); [AUTO-FAILOVER.md](AUTO-FAILOVER.md) — Function still does not call Azure ARM
 - Witness optional `failoverWebhookURL` — POST JSON once at threshold crossing (still no auto TM/scale inside the Function)
-- Contributor UX: clearer script errors (`lib.sh` helpers), bare-metal dual-inventory docs, Go 1.26 prereqs
+- Contributor UX: clearer script errors (`lib.sh` helpers), bare-metal inventory SoT sync, Go 1.26 prereqs
+- Metal-first defaults: `primary.provisioner=bare-metal`, `remote_access.provider=none`, [METAL-PRIMARY.md](METAL-PRIMARY.md), optional MetalLB overlay
 - VPN observability: Helm scrape fragment + adminCidr caveat, Grafana dashboard polish, node_exporter disk/memory alerts (no WG exporter)
 - DR drill runbook: [DR.md](DR.md) (Traffic Manager `:80/healthz` vs witness `:6443/readyz`)
 - Optional peer reconciler: `./scripts/vpn-reconcile-peers.sh` (+ `control-plane/cmd/listpeers`) — DB → `wg set`, optional `--prune`

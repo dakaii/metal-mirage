@@ -34,14 +34,19 @@ Secret outputs: `kubeconfig` (use `--show-secrets` only locally into `.secrets/`
 
 ## `infra/bare-metal` (namespace `baremetal`)
 
-Thin portable L1 provisioner for real hardware. Same output contract as `infra/primary`
-(`kubeconfig`, `apiLoadBalancerIP`, `ingressIP`, `clusterEndpoint`, `provisioner=bare-metal`).
-Switch via `config/clusters.yaml` (`provisioner: bare-metal`, `pulumi_dir: infra/bare-metal`).
-See [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md).
+Thin portable L1 provisioner for real hardware (preferred primary). Same output
+contract as `infra/primary` (`kubeconfig`, `apiLoadBalancerIP`, `ingressIP`,
+`clusterEndpoint`, `provisioner=bare-metal`). See [METAL-PRIMARY.md](METAL-PRIMARY.md)
+and [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md).
+
+**Inventory SoT:** `config/clusters.yaml` `primary.nodes` (+ optional `dry_run`,
+`install_disk`, `api_endpoint_ip`, `ingress_ip`). Prefer
+`./scripts/sync-baremetal-config.sh` or `./scripts/up.sh primary` over hand-editing
+Pulumi keys.
 
 | Key | Required | Default | Notes |
 |-----|----------|---------|-------|
-| `baremetal:nodes` | yes | — | JSON array: `[{"role":"controlplane","ip":"…"},{"role":"worker","ip":"…"}]` |
+| `baremetal:nodes` | yes | — | JSON array synced from `primary.nodes` |
 | `baremetal:apiEndpointIP` | no | first controlplane IP | VIP or CP IP used in `clusterEndpoint` |
 | `baremetal:ingressIP` | no | `apiEndpointIP` | Traffic Manager / demo HTTP target |
 | `baremetal:clusterName` | no | `metal-mirage-primary` | Talos cluster name |
@@ -49,14 +54,9 @@ See [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md).
 | `baremetal:dryRun` | no | `true` | `true` = offline: secrets + machine configs only; `false` = apply + bootstrap |
 
 ```bash
-cd infra/bare-metal
-pulumi stack init dev
-pulumi config set baremetal:nodes '[{"role":"controlplane","ip":"192.168.1.10"},{"role":"worker","ip":"192.168.1.11"}]'
-pulumi config set baremetal:apiEndpointIP 192.168.1.10
-pulumi config set baremetal:ingressIP 192.168.1.10
-pulumi config set baremetal:installDisk /dev/nvme0n1
-pulumi config set baremetal:dryRun true    # offline demo
-# pulumi config set baremetal:dryRun false # live apply when nodes are in maintenance mode
+# Prefer sync from clusters.yaml:
+./scripts/sync-baremetal-config.sh
+./scripts/up.sh primary
 ```
 
 Validate inventory without cloud/hardware: `./scripts/validate-inventory.sh`.
@@ -122,7 +122,7 @@ After a `FAILOVER_CANDIDATE` (or for Drill A), operators warm standby with:
 
 | Key | Values | Notes |
 |-----|--------|-------|
-| `remote_access.provider` | `wireguard` (default) \| `none` | `none` skips `./scripts/up.sh vpn` |
+| `remote_access.provider` | `none` (default) \| `wireguard` | `none` skips `./scripts/up.sh vpn` |
 | `remote_access.pulumi_dir` | e.g. `infra/vpn-gateways` | Adapter stack for `wireguard` |
 | `vpn.pulumi_dir` | legacy alias | Used if `remote_access.pulumi_dir` omitted |
 

@@ -1,7 +1,10 @@
-# Portable Architecture — Azure metal-sim today, bare metal later
+# Portable Architecture — bare metal preferred, Azure metal-sim as lab
 
-Only Layer 1 changes when you move from Azure VMs to real hardware. Talos machine
-config + GitOps stay the same. There is **no Ansible layer**.
+Preferred primary is **bare-metal**. Azure metal-sim is the “lab without hardware”
+path. Only Layer 1 changes when you switch. Talos machine config + GitOps stay the
+same. There is **no Ansible layer**.
+
+Golden path: [METAL-PRIMARY.md](METAL-PRIMARY.md).
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -11,7 +14,7 @@ config + GitOps stay the same. There is **no Ansible layer**.
 ├─────────────────────────────────────────────────────────────┤
 │  Layer 2: (removed)    Talos replaces OS/k8s bootstrap      │
 ├─────────────────────────────────────────────────────────────┤
-│  Layer 1: Provision    azure-metal-sim | bare-metal | aks   │
+│  Layer 1: Provision    bare-metal | azure-metal-sim | aks   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -37,9 +40,12 @@ directory from `config/clusters.yaml` → `primary.pulumi_dir`.
 |-------|----------|-------|
 | `primary.provisioner` | yes | `azure-metal-sim` \| `bare-metal` \| `aks` |
 | `primary.pulumi_dir` | yes | `infra/primary` or `infra/bare-metal` (must match provisioner) |
-| `primary.nodes` | when `bare-metal` | list of `{role, ip}` |
+| `primary.nodes` | when `bare-metal` | list of `{role, ip}` — **SoT**; synced to Pulumi |
 | `primary.nodes[].role` | yes | `controlplane` \| `worker` |
 | `primary.nodes[].ip` | yes | IPv4 or IPv6 reachable for Talos apid |
+| `primary.dry_run` | no | default `true` offline; synced → `baremetal:dryRun` |
+| `primary.install_disk` | no | synced → `baremetal:installDisk` |
+| `primary.api_endpoint_ip` / `ingress_ip` | no | default first controlplane IP |
 
 Offline check (no Azure, no hardware):
 
@@ -47,17 +53,27 @@ Offline check (no Azure, no hardware):
 ./scripts/validate-inventory.sh
 ```
 
-Example inventory: [`config/clusters.bare-metal.example.yaml`](../config/clusters.bare-metal.example.yaml).
+Default committed inventory is bare-metal + `dry_run: true`. Example copy:
+[`config/clusters.bare-metal.example.yaml`](../config/clusters.bare-metal.example.yaml).
+Azure lab: [`config/clusters.azure-metal-sim.example.yaml`](../config/clusters.azure-metal-sim.example.yaml).
+
+## Single inventory → Pulumi
+
+Do **not** maintain a second hand-edited `baremetal:nodes` inventory.
+`./scripts/sync-baremetal-config.sh` (also invoked by `./scripts/up.sh primary`)
+reads `config/clusters.yaml` and writes `baremetal:*` keys.
 
 ## Switching primary to real bare metal
 
 1. Install Talos on hardware (ISO / PXE / Omni) so nodes are in maintenance mode.
-2. Copy the example inventory into `config/clusters.yaml`:
+2. Edit `config/clusters.yaml` (or start from the bare-metal example):
 
    ```yaml
    primary:
      provisioner: bare-metal
      pulumi_dir: infra/bare-metal
+     dry_run: true
+     install_disk: /dev/sda   # often /dev/nvme0n1 on real metal
      nodes:
        - role: controlplane
          ip: 192.168.1.10
@@ -65,30 +81,21 @@ Example inventory: [`config/clusters.bare-metal.example.yaml`](../config/cluster
          ip: 192.168.1.11
    ```
 
-3. Validate offline, then configure the thin stack:
+3. Validate offline, then bring up:
 
    ```bash
    ./scripts/validate-inventory.sh
-   cd infra/bare-metal
-   pulumi stack init dev   # or select
-   pulumi config set baremetal:nodes '[{"role":"controlplane","ip":"192.168.1.10"},{"role":"worker","ip":"192.168.1.11"}]'
-   pulumi config set baremetal:apiEndpointIP 192.168.1.10
-   pulumi config set baremetal:ingressIP 192.168.1.10
-   pulumi config set baremetal:installDisk /dev/nvme0n1
-   # Offline demo (default): generates secrets + machine configs, no node contact
-   pulumi config set baremetal:dryRun true
-   cd ../..
-   ./scripts/up.sh primary
+   ./scripts/up.sh primary   # syncs inventory, then pulumi up (dryRun by default)
    ```
 
-4. When hardware is ready, set `baremetal:dryRun false` and re-run `./scripts/up.sh primary`
-   (applies machine config, bootstraps, exports a real `kubeconfig`).
-5. Point Traffic Manager at the metal `ingressIP` (`./scripts/up.sh shared` wires it).
-6. Destroy Azure metal-sim spend: `./scripts/destroy.sh primary` while
-   `clusters.yaml` still points at `infra/primary`, **or** `./scripts/destroy.sh all`
-   (also tries the sibling primary stack).
+4. When hardware is ready, set `dry_run: false` in `clusters.yaml` and re-run
+   `./scripts/up.sh primary` (applies machine config, bootstraps, real `kubeconfig`).
+5. Optional DR: point Traffic Manager at the metal `ingressIP` (`./scripts/up.sh shared`).
+6. If you previously ran Azure metal-sim: destroy that stack while
+   `clusters.yaml` still points at `infra/primary`, **or** `./scripts/destroy.sh all`.
 
-Unchanged: Flux manifests, demo app, VPN city stack (still Azure public IP unless you move exits).
+Unchanged: Flux manifests, demo app. VPN city stack stays opt-in
+(`remote_access.provider: wireguard`).
 
 ## Hybrid matrix
 

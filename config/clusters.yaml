@@ -1,25 +1,32 @@
-# Switch provisioner per cluster. Layers above L1 stay the same.
+# Metal-first platform switch. Layers above L1 (Flux / apps) stay the same.
 #
-# azure-metal-sim: Talos on Azure VMs (default — no home public IP required)
-# bare-metal:      real hardware via infra/bare-metal (same Talos + Flux contract)
+# Preferred primary: bare-metal (on-prem Talos). Azure metal-sim is the
+# "lab without hardware" path — see config/clusters.azure-metal-sim.example.yaml.
 #
-# Capability ports (see docs/CAPABILITY-PORTS.md):
-#   Compute       → primary / standby provisioners below
-#   RemoteAccess  → remote_access (WireGuard is the OSS example; set provider: none to skip)
+# Capability ports (docs/CAPABILITY-PORTS.md):
+#   Compute       → primary / standby provisioners
+#   RemoteAccess  → none by default; set wireguard to enable city-exit adapter
 #   Lifecycle     → not implemented in OSS (BMC/power)
-#   Observability → gitops/ hints (not configured here)
+#   Observability → gitops/ hints
 #
-# Example bare-metal inventory: config/clusters.bare-metal.example.yaml
-# Docs: docs/PORTABLE-ARCHITECTURE.md
+# Golden path: docs/METAL-PRIMARY.md
+# Inventory SoT for bare-metal: primary.nodes (+ optional api_endpoint_ip, …)
+#   → ./scripts/sync-baremetal-config.sh (also run by ./scripts/up.sh primary)
 
 primary:
-  provisioner: azure-metal-sim
-  pulumi_dir: infra/primary
+  provisioner: bare-metal
+  pulumi_dir: infra/bare-metal
   profile: primary
-  # To switch primary to real metal:
-  #   1. Copy nodes from clusters.bare-metal.example.yaml
-  #   2. Set provisioner: bare-metal and pulumi_dir: infra/bare-metal
-  #   3. ./scripts/validate-inventory.sh && ./scripts/up.sh primary
+  # Offline-safe defaults (dry_run: true). Replace IPs with your hardware.
+  dry_run: true
+  # Code default is /dev/sda; change for your hardware (often /dev/nvme0n1).
+  install_disk: /dev/sda
+  # api_endpoint_ip / ingress_ip default to the first controlplane IP when omitted.
+  nodes:
+    - role: controlplane
+      ip: 192.168.1.10
+    - role: worker
+      ip: 192.168.1.11
 
 standby:
   provisioner: aks
@@ -29,13 +36,11 @@ standby:
 shared:
   pulumi_dir: infra/shared
 
-# RemoteAccess port — WireGuard city exit is the shipped example adapter.
-# Set provider: none for platform-only bring-up (no VPN stack).
+# RemoteAccess — off by default (platform / GitOps / DR only).
 remote_access:
-  provider: wireguard # wireguard | none
+  provider: none # wireguard | none
   pulumi_dir: infra/vpn-gateways
 
-# Legacy alias (same plane). Scripts still accept "vpn"; prefer remote_access above.
+# Legacy alias (same plane). Scripts still accept "vpn".
 vpn:
   pulumi_dir: infra/vpn-gateways
-  # City/region come from Pulumi stack config (vpn:city / vpn:location), not this file.
