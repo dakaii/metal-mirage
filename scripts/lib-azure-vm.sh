@@ -1,6 +1,21 @@
-# Shared Azure VM size helpers (quota + SKU probe).
+# Shared Azure VM size helpers (quota + SKU probe) and admin CIDR detect.
 # shellcheck shell=bash
 # Source from scripts after ROOT is set.
+
+# Detect operator public IPv4 as x.x.x.x/32 (for NSG adminCidr).
+# Prints CIDR on stdout; exits 1 if undetectable.
+detect_admin_cidr() {
+  local ip="" url
+  for url in "https://ifconfig.me" "https://api.ipify.org" "https://icanhazip.com"; do
+    ip="$(curl -fsSL --max-time 5 "${url}" 2>/dev/null | tr -d '[:space:]' || true)"
+    if [[ "${ip}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      printf '%s/32\n' "${ip}"
+      return 0
+    fi
+  done
+  echo "could not detect public IPv4 for adminCidr (tried ifconfig.me / ipify / icanhazip)." >&2
+  return 1
+}
 
 # Default candidate list — prefer families that usually have quota on new subs.
 # Override: AZURE_VM_SIZE_CANDIDATES="Standard_D2s_v4 Standard_B2ms …"

@@ -102,6 +102,53 @@ ensure_azure_metal_sim_vm_size() {
   pulumi -C "${ROOT}/${dir}" config set primary:vmSize "${size}"
 }
 
+# Refresh primary:adminCidr from the operator's current public IP so Talos
+# apid (:50000) NSG rules stay reachable when the laptop IP drifts.
+# Skip: SKIP_ADMIN_CIDR_AUTO=1, or ADMIN_CIDR=x.x.x.x/32 to force a value.
+ensure_azure_metal_sim_admin_cidr() {
+  local dir current now
+  dir="$(primary_dir)"
+  if [[ ! -d "${ROOT}/${dir}" ]]; then
+    return 0
+  fi
+  if [[ "${SKIP_ADMIN_CIDR_AUTO:-0}" == "1" ]]; then
+    echo "==> SKIP_ADMIN_CIDR_AUTO=1 — leaving primary:adminCidr unchanged"
+    return 0
+  fi
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "==> curl missing — skip adminCidr refresh"
+    return 0
+  fi
+
+  (
+    cd "${ROOT}/${dir}"
+    pulumi stack select "${STACK}" 2>/dev/null || pulumi stack init "${STACK}"
+  )
+
+  if [[ -n "${ADMIN_CIDR:-}" ]]; then
+    echo "==> ADMIN_CIDR=${ADMIN_CIDR} — setting primary:adminCidr"
+    pulumi -C "${ROOT}/${dir}" config set primary:adminCidr "${ADMIN_CIDR}"
+    return 0
+  fi
+
+  if ! now="$(detect_admin_cidr)"; then
+    echo "==> could not detect public IP — leave primary:adminCidr unchanged" >&2
+    echo "  Set ADMIN_CIDR=x.x.x.x/32 or: pulumi -C ${dir} config set primary:adminCidr …" >&2
+    return 0
+  fi
+  current="$(pulumi -C "${ROOT}/${dir}" config get primary:adminCidr 2>/dev/null || true)"
+  if [[ "${current}" == "${now}" ]]; then
+    echo "==> primary:adminCidr already ${now}"
+    return 0
+  fi
+  if [[ -n "${current}" ]]; then
+    echo "==> primary:adminCidr ${current} → ${now} (public IP changed)"
+  else
+    echo "==> primary:adminCidr → ${now}"
+  fi
+  pulumi -C "${ROOT}/${dir}" config set primary:adminCidr "${now}"
+}
+
 primary_dir() {
   resolve_pulumi_dir primary
 }
@@ -160,6 +207,7 @@ case "${TARGET}" in
     if [[ "${PRIMARY_PROVISIONER}" == "bare-metal" ]]; then
       "${ROOT}/scripts/sync-baremetal-config.sh"
     elif [[ "${PRIMARY_PROVISIONER}" == "azure-metal-sim" ]]; then
+      ensure_azure_metal_sim_admin_cidr
       ensure_azure_metal_sim_vm_size
     fi
     up_one "$(primary_dir)"
@@ -184,6 +232,7 @@ case "${TARGET}" in
     if [[ "${PRIMARY_PROVISIONER}" == "bare-metal" ]]; then
       "${ROOT}/scripts/sync-baremetal-config.sh"
     elif [[ "${PRIMARY_PROVISIONER}" == "azure-metal-sim" ]]; then
+      ensure_azure_metal_sim_admin_cidr
       ensure_azure_metal_sim_vm_size
     fi
     up_one "$(primary_dir)"
@@ -205,6 +254,7 @@ case "${TARGET}" in
     echo "usage: $0 primary|standby|shared|vpn|remote_access|all" >&2
     echo "env: PULUMI_STACK (default: dev)" >&2
     echo "      PRIMARY_VM_SIZE / FORCE_AZURE_VM_SIZE_AUTO / SKIP_AZURE_VM_SIZE_AUTO (azure-metal-sim)" >&2
+    echo "      ADMIN_CIDR / SKIP_ADMIN_CIDR_AUTO (azure-metal-sim NSG refresh)" >&2
     echo "primary dir follows config/clusters.yaml (azure-metal-sim → infra/primary, bare-metal → infra/bare-metal)" >&2
     echo "remote_access.provider=wireguard|none selects the optional RemoteAccess adapter" >&2
     exit 1
