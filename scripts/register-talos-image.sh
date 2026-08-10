@@ -73,6 +73,8 @@ HELPER_VM="talos-vhd-helper"
 SCHEMATIC_ID="${TALOS_SCHEMATIC_ID:-376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib-azure-vm.sh
+source "${ROOT}/scripts/lib-azure-vm.sh"
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -238,33 +240,34 @@ upload_in_azure() {
   }
   trap cleanup_helper EXIT
 
-  # Capacity + per-family quota vary by subscription/region; try several SKUs.
-  local sizes=() size chosen="" err reason
+  # Probe quota/SKU first, then try-create (capacity restrictions are not always
+  # visible in list-skus — keep create fallback).
+  local sizes=() size chosen="" err reason probed=""
   err="$(mktemp)"
   if [[ -n "${TALOS_HELPER_VM_SIZES:-}" ]]; then
     # shellcheck disable=SC2206
     sizes=(${TALOS_HELPER_VM_SIZES})
   else
+    if command -v python3 >/dev/null 2>&1; then
+      echo "==> Probing helper VM sizes in ${LOCATION}"
+      probed="$(pick_azure_vm_size "${LOCATION}" "${TALOS_HELPER_VM_SIZE:-}" 2 || true)"
+      if [[ -n "${probed}" ]]; then
+        echo "==> probe prefers ${probed}"
+        sizes+=("${probed}")
+      fi
+    fi
     if [[ -n "${TALOS_HELPER_VM_SIZE:-}" ]]; then
       sizes+=("${TALOS_HELPER_VM_SIZE}")
     fi
-    sizes+=(
-      Standard_D2s_v5
-      Standard_D2s_v4
-      Standard_D2s_v3
-      Standard_DS2_v2
-      Standard_D2_v3
-      Standard_D2_v2
-      Standard_B2ms
-      Standard_B2s
-      Standard_A2_v2
-      Standard_F2s_v2
-      Standard_E2s_v3
-    )
+    # shellcheck disable=SC2207
+    sizes+=($(azure_vm_size_candidates))
   fi
 
   # run-command does not need SSH/public IP; VHD never touches the laptop.
+  local seen_try=""
   for size in "${sizes[@]}"; do
+    [[ " ${seen_try} " == *" ${size} "* ]] && continue
+    seen_try+=" ${size}"
     echo "==> Creating helper VM ${HELPER_VM} (${size}, 64GiB OS disk, no public IP)"
     # Capture full stderr: az 2.87 can crash after printing the real ARM error.
     if az vm create \
@@ -395,8 +398,10 @@ echo ""
 echo "Talos image ready:"
 echo "  ${IMAGE_ID}"
 echo ""
-echo "Configure primary stack:"
-echo "  cd infra/primary && pulumi config set primary:talosImageId '${IMAGE_ID}'"
+echo "Configure + bring up primary (one shot):"
+echo "  ./scripts/init-azure-metal-sim.sh --write-clusters --location ${LOCATION} --image-id '${IMAGE_ID}' --up"
+echo "Or config only:"
+echo "  ./scripts/init-azure-metal-sim.sh --write-clusters --location ${LOCATION} --image-id '${IMAGE_ID}'"
 echo "Disk device default for metal-sim patches is /dev/sda (override with primary:installDisk)."
 echo "Note: gallery RG ${RG} is NOT destroyed by ./scripts/destroy.sh — delete with:"
 echo "  az group delete -n ${RG} --yes --no-wait"
