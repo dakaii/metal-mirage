@@ -35,6 +35,8 @@ Downloads `azure-amd64.vhd.xz` from [Talos Image Factory](https://factory.talos.
 
 Prefer `--in-azure` on a laptop: a short-lived helper VM downloads/decompresses/uploads
 the VHD (no multi-GB copy under `.secrets/`). Default mode still downloads locally.
+If a SKU is capacity-restricted (`SkuNotAvailable`), the script tries several sizes; override with
+`TALOS_HELPER_VM_SIZE=Standard_D2s_v5` (or `TALOS_HELPER_VM_SIZES`).
 
 ```bash
 ./scripts/register-talos-image.sh --in-azure eastus
