@@ -34,6 +34,7 @@ for d in infra/*/ control-plane pkg/ports; do
 done
 
 shellcheck -x scripts/*.sh   # -x follows sourced helpers (e.g. lib.sh)
+( cd infra/shared/witness && python3 -m unittest -v test_notify.py )
 actionlint                   # if installed: brew install actionlint
 gitleaks detect --source .   # uses .gitleaks.toml; brew install gitleaks
 ./scripts/validate-inventory.sh
@@ -59,6 +60,7 @@ cd infra/primary && pulumi preview
 - `go-build (pkg/ports)`
 - `kustomize`
 - `scripts`
+- `witness-notify`
 - `actionlint`
 - `gitleaks`
 
