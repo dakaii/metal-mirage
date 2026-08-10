@@ -88,14 +88,16 @@ sys.exit(1)
 }
 
 # Returns 0 only if the SKU is location-wide unavailable for this subscription.
-# Zone restrictions are ignored: az vm create without --zone still works when
-# some zones are restricted (and empty list-skus must not false-block — that
-# previously skipped Standard_D2s_v4 after a successful helper-VM create).
+# Zone restrictions are ignored: non-zonal creates still work when some AZs are
+# restricted. Empty/unknown list-skus must not false-block (that previously
+# skipped Standard_D2s_v4 after a successful helper-VM create).
 azure_vm_sku_blocked() {
   local location="$1" size="$2"
   local raw
+  # --size keeps the query small (full catalog per candidate is very slow).
   raw="$(az vm list-skus \
     --location "${location}" \
+    --size "${size}" \
     --resource-type virtualMachines \
     --query "[?name=='${size}']" \
     -o json 2>/dev/null || echo '[]')"
