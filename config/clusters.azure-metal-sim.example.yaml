@@ -3,9 +3,10 @@
 # the Azure primary path instead of bare-metal.
 #
 # Then:
-#   ./scripts/register-talos-image.sh eastus
-#   ./scripts/login.sh
-#   ./scripts/up.sh primary
+#   ./scripts/register-talos-image.sh --in-azure eastus
+#   ./scripts/login.sh --local-pulumi   # if needed
+#   # configure infra/primary: talosImageId, adminCidr, counts…
+#   ./scripts/up.sh primary            # auto-picks primary:vmSize (quota/SKU)
 
 primary:
   provisioner: azure-metal-sim

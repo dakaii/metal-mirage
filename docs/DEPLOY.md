@@ -49,7 +49,13 @@ pulumi config set primary:talosImageId '/subscriptions/.../galleries/.../version
 pulumi config set primary:adminCidr "$(curl -fsSL ifconfig.me)/32"
 pulumi config set primary:controlPlaneCount 1
 pulumi config set primary:workerCount 1
+# optional: export PULUMI_CONFIG_PASSPHRASE=…  # avoid retyping the stack passphrase
 ```
+
+`./scripts/up.sh primary` **auto-selects** `primary:vmSize` from Azure quota/SKU
+(skips the old `Standard_B2s` default when that family has no capacity). Override with
+`PRIMARY_VM_SIZE=…`, re-probe with `FORCE_AZURE_VM_SIZE_AUTO=1`, or skip via
+`SKIP_AZURE_VM_SIZE_AUTO=1`. Probe alone: `./scripts/pick-azure-vm-size.sh eastus 4`.
 
 ## 2. Primary (metal-sim)
 
