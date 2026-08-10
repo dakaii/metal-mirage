@@ -87,7 +87,9 @@ are contracts and config validation — not a unified in-process orchestrator.
 
 ### 5. Instant L4 failover or automatic DR cutover
 Traffic Manager is still **DNS TTL** portfolio DR. Witness / `failover-promote`
-are operator tools. Ports do not invent a different failover physics.
+are operator tools; opt-in webhook→GHA promote is documented in
+[AUTO-FAILOVER.md](AUTO-FAILOVER.md) (still not L4 / not in-Function ARM).
+Ports do not invent a different failover physics.
 
 ### 6. Auto-`wg set` from `POST /api/peers`
 Peer minting and VM projection stay split on purpose (abuse / operator control).

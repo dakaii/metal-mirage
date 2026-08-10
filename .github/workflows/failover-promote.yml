@@ -1,0 +1,133 @@
+# Opt-in cold-standby promote when the witness crosses FAILOVER_CANDIDATE.
+#
+# Default behavior is safe: repository_dispatch only dry-runs unless the
+# repository variable FAILOVER_AUTO_PROMOTE is exactly "true".
+# Manual runs: Actions → Failover promote → Run workflow.
+#
+# Secrets for a live promote:
+#   STANDBY_KUBECONFIG — full kubeconfig YAML for AKS standby
+#   AZURE_CREDENTIALS  — only if disabling TM primary (az login JSON)
+# Optional repository variables:
+#   FAILOVER_AUTO_PROMOTE=true     — allow repository_dispatch to promote for real
+#   FAILOVER_DISABLE_PRIMARY_TM=true
+#   FAILOVER_REPLICAS=2
+#   TM_RESOURCE_GROUP, TM_PROFILE_NAME, TM_PRIMARY_ENDPOINT
+#
+# Docs: docs/AUTO-FAILOVER.md
+name: Failover promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Print actions only (recommended first)
+        type: boolean
+        default: true
+      disable_primary_tm:
+        description: Disable Traffic Manager primary endpoint
+        type: boolean
+        default: false
+      replicas:
+        description: Standby demo replica count
+        type: string
+        default: "2"
+  repository_dispatch:
+    types: [failover-candidate]
+
+concurrency:
+  group: failover-promote
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve mode
+        id: mode
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_DISABLE_TM: ${{ inputs.disable_primary_tm }}
+          INPUT_REPLICAS: ${{ inputs.replicas }}
+          AUTO_PROMOTE: ${{ vars.FAILOVER_AUTO_PROMOTE }}
+          VAR_DISABLE_TM: ${{ vars.FAILOVER_DISABLE_PRIMARY_TM }}
+          VAR_REPLICAS: ${{ vars.FAILOVER_REPLICAS }}
+        run: |
+          set -euo pipefail
+          DRY_RUN=1
+          DISABLE_TM=0
+          REPLICAS="${VAR_REPLICAS:-2}"
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            if [[ "${INPUT_DRY_RUN}" == "true" ]]; then DRY_RUN=1; else DRY_RUN=0; fi
+            if [[ "${INPUT_DISABLE_TM}" == "true" ]]; then DISABLE_TM=1; else DISABLE_TM=0; fi
+            REPLICAS="${INPUT_REPLICAS:-2}"
+          else
+            echo "repository_dispatch payload: ${DISPATCH_PAYLOAD}"
+            # Opt-in only — never auto-scale from a webhook without an explicit repo variable.
+            if [[ "${AUTO_PROMOTE}" == "true" ]]; then
+              DRY_RUN=0
+            else
+              echo "::notice::FAILOVER_AUTO_PROMOTE is not true — dry-run only. Set the repo variable to enable live promote."
+              DRY_RUN=1
+            fi
+            if [[ "${VAR_DISABLE_TM}" == "true" ]]; then DISABLE_TM=1; fi
+          fi
+          {
+            echo "dry_run=${DRY_RUN}"
+            echo "disable_tm=${DISABLE_TM}"
+            echo "replicas=${REPLICAS}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write standby kubeconfig
+        env:
+          STANDBY_KUBECONFIG_SECRET: ${{ secrets.STANDBY_KUBECONFIG }}
+          DRY_RUN: ${{ steps.mode.outputs.dry_run }}
+        run: |
+          set -euo pipefail
+          mkdir -p .secrets
+          if [[ "${DRY_RUN}" == "1" ]]; then
+            # Script requires a path; dry-run never calls kubectl for real.
+            printf '%s\n' '{"apiVersion":"v1","kind":"Config","clusters":[],"contexts":[],"users":[]}' \
+              > .secrets/standby.kubeconfig
+            exit 0
+          fi
+          if [[ -z "${STANDBY_KUBECONFIG_SECRET}" ]]; then
+            echo "::error::STANDBY_KUBECONFIG secret is required for a live promote"
+            exit 1
+          fi
+          printf '%s\n' "${STANDBY_KUBECONFIG_SECRET}" > .secrets/standby.kubeconfig
+          chmod 600 .secrets/standby.kubeconfig
+
+      - name: Azure login
+        if: steps.mode.outputs.dry_run == '0' && steps.mode.outputs.disable_tm == '1'
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Install kubectl
+        if: steps.mode.outputs.dry_run == '0'
+        uses: azure/setup-kubectl@v4
+
+      - name: Promote (or dry-run)
+        env:
+          STANDBY_KUBECONFIG: ${{ github.workspace }}/.secrets/standby.kubeconfig
+          TM_RESOURCE_GROUP: ${{ vars.TM_RESOURCE_GROUP }}
+          TM_PROFILE_NAME: ${{ vars.TM_PROFILE_NAME }}
+          TM_PRIMARY_ENDPOINT: ${{ vars.TM_PRIMARY_ENDPOINT }}
+          FAILOVER_REPLICAS: ${{ steps.mode.outputs.replicas }}
+        run: |
+          set -euo pipefail
+          ARGS=(--promote --replicas "${{ steps.mode.outputs.replicas }}")
+          if [[ "${{ steps.mode.outputs.dry_run }}" == "1" ]]; then
+            ARGS+=(--dry-run)
+          fi
+          if [[ "${{ steps.mode.outputs.disable_tm }}" == "1" ]]; then
+            ARGS+=(--disable-primary-tm)
+          fi
+          ./scripts/failover-promote.sh "${ARGS[@]}"

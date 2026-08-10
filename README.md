@@ -74,6 +74,7 @@ Only Layer 1 changes when you move from Azure VMs to real hardware. Talos machin
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layers, metal-sim, failover, VPN split, Clerk/Neon |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Full bring-up (Flux, witness, VPN peers) |
 | [docs/DR.md](docs/DR.md) | Failover drill (Traffic Manager + witness) |
+| [docs/AUTO-FAILOVER.md](docs/AUTO-FAILOVER.md) | Opt-in webhook / GHA promote + RTO honesty |
 | [docs/CONFIG.md](docs/CONFIG.md) | Pulumi / env config keys |
 | [docs/BEST-PRACTICES.md](docs/BEST-PRACTICES.md) | Operator security / GitOps / teardown checklist |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Branch from `main`, open a PR; CI check names |

@@ -2,6 +2,8 @@
 
 Operator runbook for portfolio failover. Nothing here is instant L4 cutover — Traffic Manager follows **DNS TTL**, and the witness Function is an **advisory signal** until you act.
 
+Opt-in automation (webhook / GitHub promote runner), modes, and RTO honesty: **[AUTO-FAILOVER.md](AUTO-FAILOVER.md)**.
+
 ## Two health planes (do not confuse)
 
 | Plane | What it probes | Path | Actor |
@@ -9,7 +11,7 @@ Operator runbook for portfolio failover. Nothing here is instant L4 cutover — 
 | **User / DNS** | Demo HTTP | `:80` `/healthz` → primary LB → NodePort `30080` (or standby Service) | Azure Traffic Manager |
 | **Witness** | Kubernetes API readiness | `https://<apiLoadBalancerIP>:6443/readyz` (TLS verify off) | Consumption Function, every **1 min**, threshold **3** |
 
-TM does **not** use `/readyz`. Witness does **not** flip TM endpoints or scale standby for you — use `./scripts/failover-promote.sh` (or your webhook target) for those operator actions.
+TM does **not** use `/readyz`. Witness does **not** flip TM endpoints or scale standby itself — use `./scripts/failover-promote.sh`, the opt-in [AUTO-FAILOVER.md](AUTO-FAILOVER.md) GitHub workflow, or your own webhook target.
 
 ## Preconditions
 
@@ -79,14 +81,16 @@ Manual alternatives:
 3. Break API reachability (stop control-plane nodes, NSG-deny `:6443`, or wrong URL).
 4. After **≥3** consecutive minute failures, expect log line `FAILOVER_CANDIDATE`.
 5. Optional: inspect blob container `witness-state` / blob `failures.txt` (ETag-backed counter).
-6. Optional outbound hook: set `shared:failoverWebhookURL` (secret) so the Function POSTs JSON once when the threshold is crossed (`event=FAILOVER_CANDIDATE`). Point that webhook at a runner that executes `./scripts/failover-promote.sh` (or run the script by hand).
-7. Operator actions:
+6. Optional outbound hooks (still **once** at threshold crossing) — see [AUTO-FAILOVER.md](AUTO-FAILOVER.md):
+   - `shared:failoverWebhookURL` (+ optional HMAC secret) → generic HTTPS POST
+   - `shared:failoverGitHubRepo` + `shared:failoverGitHubToken` → `repository_dispatch` (`failover-candidate`)
+7. Operator actions (or GHA after opt-in):
    ```bash
    ./scripts/failover-promote.sh                      # warm standby
    ./scripts/failover-promote.sh --disable-primary-tm # + disable TM primary
    ```
    Optional Velero restore ([VELERO.md](VELERO.md)).
-8. Restore primary API — witness should reset the counter and log `primary healthy`. Failback:
+8. Restore primary API — witness should reset the counter and log `primary healthy`. Failback stays **manual** (no auto-failback):
    ```bash
    ./scripts/failover-promote.sh --failback
    ```
@@ -102,7 +106,7 @@ Manual alternatives:
 ## Honesty
 
 - TM failover is **DNS-TTL**, not L4.
-- Witness is advisory by default (logs `FAILOVER_CANDIDATE`). Optional `failoverWebhookURL` POSTs once at threshold crossing — pair it with `./scripts/failover-promote.sh` (or equivalent); the Function still does not call Azure ARM itself.
+- Witness is advisory by default (logs `FAILOVER_CANDIDATE`). Optional webhook / GitHub dispatch fire once at threshold — pair with `./scripts/failover-promote.sh` or [AUTO-FAILOVER.md](AUTO-FAILOVER.md); the Function still does not call Azure ARM itself.
 - Leaving `:6443` open for Function egress is intentional when witness is enabled ([BEST-PRACTICES.md](BEST-PRACTICES.md)).
 - **VPN city exits are out of this path** — no peer failover in V1 ([VPN.md](VPN.md)). Peer DB→VM sync is `./scripts/vpn-reconcile-peers.sh`, not TM.
 
@@ -111,8 +115,10 @@ Manual alternatives:
 | Doc / script | Role |
 |--------------|------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Failover section |
+| [AUTO-FAILOVER.md](AUTO-FAILOVER.md) | Opt-in webhook / GHA promote + RTO |
 | [DEPLOY.md](DEPLOY.md) | Bring-up order |
 | [VELERO.md](VELERO.md) | Restore on standby |
 | `./scripts/deploy-witness.sh` | Zip deploy for the Function |
 | `./scripts/failover-promote.sh` | Warm/cold standby + optional TM primary disable |
+| `.github/workflows/failover-promote.yml` | Opt-in promote runner |
 | `./scripts/up.sh shared` | Wires TM + witness config from stack outputs |

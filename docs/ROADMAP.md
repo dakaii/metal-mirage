@@ -11,7 +11,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 | Pulumi Go stacks: `primary` (Talos metal-sim), `bare-metal` (thin L1), `standby-aks`, `shared` (Traffic Manager + witness), `vpn-gateways` | Ship / harden |
 | Scripts: `login`, `register-talos-image`, `up` / `destroy`, `validate-inventory`, `vpn-bootstrap`, `vpn-reconcile-peers`, `failover-promote`, `install-flux`, `deploy-witness` | Documented, runnable |
 | GitOps: Flux bootstrap path + demo app + monitoring scrape/alert hints | Kustomize-valid |
-| Docs: ARCHITECTURE, DEPLOY, VPN, CLIENT-PROFILES, CAPABILITY-PORTS, COST, PORTABLE, CONFIG, BEST-PRACTICES, LEGAL, this ROADMAP | Honest personal/self-host framing |
+| Docs: ARCHITECTURE, DEPLOY, DR, AUTO-FAILOVER, VPN, CLIENT-PROFILES, CAPABILITY-PORTS, COST, PORTABLE, CONFIG, BEST-PRACTICES, LEGAL, this ROADMAP | Honest personal/self-host framing |
 | Optional Phase 3 demo: Clerk + Neon peer registry + WireGuard profile exports in `control-plane/` | Minimal API only; clearly optional |
 | Capability ports: `pkg/ports` + `remote_access.provider` (`wireguard` \| `none`); WireGuard as RemoteAccess example | Ship / document limits |
 | CI: Go build/fmt/vet matrix (incl. `infra/bare-metal` + inventory tests) + kustomize + shellcheck + actionlint + gitleaks; PRs into `main` ([CONTRIBUTING.md](../CONTRIBUTING.md)) | Keep green; no Azure secrets in CI |
@@ -20,6 +20,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 ## Next (OSS hardening)
 
 - Live Azure bring-up validation of the full DR path (needs Azure creds in the operator environment)
+- Branch protection: require CI check `go-build (pkg/ports)` on `main`
 
 ### Recently landed
 
@@ -27,6 +28,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 - Legality / intended-use note: [LEGAL.md](LEGAL.md) (personal self-host framing; not legal advice)
 - Failover promote helper: `./scripts/failover-promote.sh` (Flux-aware standby scale + optional TM primary disable/failback); stable TM resource names exported from `infra/shared`
 - Contributor UX: secret-scan hygiene — `.gitleaks.toml`, safer `.env.example` placeholders, `credentials-velero` gitignore, local `gitleaks` in CONTRIBUTING
+- Opt-in auto-promote glue: enriched witness webhook + optional HMAC + GitHub `repository_dispatch`; `.github/workflows/failover-promote.yml` (dry-run unless `FAILOVER_AUTO_PROMOTE=true`); [AUTO-FAILOVER.md](AUTO-FAILOVER.md) — Function still does not call Azure ARM
 - Witness optional `failoverWebhookURL` — POST JSON once at threshold crossing (still no auto TM/scale inside the Function)
 - Contributor UX: clearer script errors (`lib.sh` helpers), bare-metal dual-inventory docs, Go 1.26 prereqs
 - VPN observability: Helm scrape fragment + adminCidr caveat, Grafana dashboard polish, node_exporter disk/memory alerts (no WG exporter)
@@ -44,6 +46,7 @@ Do **not** implement these in metal-mirage. Keep them in a separate commercial c
 - Proprietary branding, App Store / consumer mobile apps, commercial “unblocker” marketing
 - Managed hosted control plane as a paid product
 - Hard-coded vendor secrets or license keys
+- BMC / server Lifecycle product (iDRAC, iLO, Redfish reboot orchestration, “Gangnam-style” on-prem ops) — use a separate commercial repo; OSS keeps `pkg/ports` Lifecycle as a **noop** hook only
 
 The optional Clerk + Neon peer API in OSS is a **demo**, not a billing surface. Pushing peers onto the VPN VM is an operator step via `./scripts/vpn-reconcile-peers.sh` (not inlined into `POST /api/peers`).
 
@@ -57,3 +60,4 @@ The optional Clerk + Neon peer API in OSS is a **demo**, not a billing surface. 
 | Apache-2.0 personal/self-host platform ([LEGAL.md](LEGAL.md)) | “Commercial VPN product” / unblocker marketing claims |
 | WireGuard client-profile exports + protocol registry hook | Non-WG commercial protocol packs as a paid product |
 | Capability ports (`pkg/ports`) + `remote_access: none\|wireguard` | BMC/Lifecycle product, billing, multi-tenant control plane |
+| Opt-in witness → webhook / GHA promote ([AUTO-FAILOVER.md](AUTO-FAILOVER.md)) | In-Function MSI ARM promote; auto-failback; commercial BMC/Lifecycle SaaS |

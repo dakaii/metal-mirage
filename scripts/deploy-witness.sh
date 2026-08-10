@@ -24,9 +24,10 @@ ZIP="$(mktemp -t witnessXXXX).zip"
 trap 'rm -f "${ZIP}"' EXIT
 (
   cd "${ROOT}/infra/shared/witness"
-  zip -qr "${ZIP}" function_app.py host.json requirements.txt
+  zip -qr "${ZIP}" function_app.py notify.py host.json requirements.txt
 )
 echo "==> Deploying witness to ${APP} in ${RG}"
 az functionapp deployment source config-zip -g "${RG}" -n "${APP}" --src "${ZIP}"
 echo "Done. Timer probe runs every minute against shared:primaryAPIURL (/readyz)."
 echo "Failure counter lives in blob container witness-state (survives Y1 cold starts)."
+echo "Opt-in notify: docs/AUTO-FAILOVER.md (webhook / GitHub repository_dispatch)."
