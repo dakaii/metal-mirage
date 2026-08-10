@@ -52,6 +52,7 @@ Pulumi keys.
 | `baremetal:ingressIP` | no | `apiEndpointIP` | Traffic Manager / demo HTTP target |
 | `baremetal:clusterName` | no | `metal-mirage-primary` | Talos cluster name |
 | `baremetal:installDisk` | no | `/dev/sda` | Often `/dev/nvme0n1` on real metal |
+| `baremetal:talosVersion` | no | `v1.9.5` | Pins pulumi-talos schema to match installed nodes |
 | `baremetal:dryRun` | no | `true` | `true` = offline: secrets + machine configs only; `false` = apply + bootstrap |
 
 ```bash
