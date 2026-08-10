@@ -17,6 +17,8 @@ Auth: `./scripts/login.sh` (Azure + Pulumi; `--status`, `--local-pulumi`, option
 - Default `config/clusters.yaml` is **bare-metal** + `remote_access.provider: none` (metal-first). Golden path: `docs/METAL-PRIMARY.md`.
 - `primary.pulumi_dir` selects `infra/bare-metal` (preferred) or `infra/primary` (azure-metal-sim lab).
 - Bare-metal inventory SoT is `primary.nodes` in `clusters.yaml`; `./scripts/sync-baremetal-config.sh` (also via `./scripts/up.sh primary`) writes `baremetal:*` Pulumi keys — do not dual-maintain.
+- After dry-run `up`, `./scripts/export-baremetal-machine-configs.sh` dumps `machineConfigs` to `.secrets/bare-metal-configs/` for USB/`talosctl apply-config --insecure`. ISO/PXE install stays outside the repo.
+- Optional MetalLB demo Service: `gitops/apps/demo-loadbalancer` (default Flux stays NodePort).
 - `remote_access.provider` (`none` default \| `wireguard`) selects the optional RemoteAccess adapter (`docs/CAPABILITY-PORTS.md`).
 - `./scripts/up.sh primary` / `./scripts/destroy.sh primary` resolve that path via `scripts/lib.sh`.
 - Offline inventory + ports check (no Azure/hardware): `./scripts/validate-inventory.sh`.

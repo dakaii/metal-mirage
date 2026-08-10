@@ -68,11 +68,12 @@ Full golden path: [METAL-PRIMARY.md](METAL-PRIMARY.md).
 ./scripts/validate-inventory.sh
 # 3. Sync + pulumi up (dry_run generates secrets/configs only)
 ./scripts/up.sh primary
+./scripts/export-baremetal-machine-configs.sh   # optional USB / talosctl files
 ```
 
-Live apply: install Talos to maintenance mode, set `dry_run: false` in
-`clusters.yaml`, re-run `up.sh primary`. Ingress options (NodePort / MetalLB / BYO):
-see [METAL-PRIMARY.md](METAL-PRIMARY.md).
+Live apply: install Talos to maintenance mode (checklist in [METAL-PRIMARY.md](METAL-PRIMARY.md)),
+set `dry_run: false` in `clusters.yaml`, re-run `up.sh primary`. Ingress options
+(NodePort / MetalLB + `gitops/apps/demo-loadbalancer` / BYO): see METAL-PRIMARY.
 
 Azure metal-sim lab: copy `config/clusters.azure-metal-sim.example.yaml` over
 `config/clusters.yaml`, then follow §2 above.

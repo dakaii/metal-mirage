@@ -44,14 +44,35 @@ This **overwrites** `baremetal:*` keys from YAML each run (SoT) — a hand-set
 ./scripts/sync-baremetal-config.sh
 ```
 
-## 2. Dry-run (offline) then live apply
+## 2. Dry-run (offline) → export configs → maintenance → live apply
 
 ```bash
 ./scripts/up.sh primary
 # dry_run=true → secrets + machine configs in state; no Talos API calls
 
-# Install Talos on nodes → maintenance mode, then:
-#   set dry_run: false in config/clusters.yaml
+./scripts/export-baremetal-machine-configs.sh
+# writes .secrets/bare-metal-configs/{controlplane-*.yaml,worker-*.yaml,APPLY.md}
+```
+
+### Maintenance-mode checklist (outside this repo)
+
+Talos must be installed onto disks **before** `dry_run: false`. This repo does not
+PXE/BMC/ISO for you.
+
+1. Flash / PXE / Omni each node with a Talos installer matching your arch.
+2. Boot into **maintenance mode** (apid listening — typically TCP `:50000`).
+3. Confirm the operator machine can reach each inventory IP (firewall / VLAN).
+4. Confirm `install_disk` in `clusters.yaml` matches the real target disk
+   (`/dev/sda` vs `/dev/nvme0n1`, etc.).
+5. Map exported `controlplane-N.yaml` / `worker-N.yaml` → node IPs
+   (see `.secrets/bare-metal-configs/INVENTORY.txt`).
+
+### Live apply
+
+**Recommended — Pulumi applies + bootstraps:**
+
+```bash
+# set dry_run: false in config/clusters.yaml
 ./scripts/sync-baremetal-config.sh
 ./scripts/up.sh primary
 
@@ -60,6 +81,11 @@ pulumi -C infra/bare-metal stack output kubeconfig --show-secrets > .secrets/pri
 export KUBECONFIG=$PWD/.secrets/primary.kubeconfig
 kubectl get nodes
 ```
+
+**Manual / USB — `talosctl` first** (air-gap friendly): see
+`.secrets/bare-metal-configs/APPLY.md` (`talosctl apply-config --insecure …`),
+then either bootstrap with `talosctl` or flip `dry_run: false` and let Pulumi
+finish `ConfigurationApply` + Bootstrap.
 
 ## 3. Ingress on metal (pick one)
 
@@ -85,16 +111,21 @@ kubectl apply -k gitops/infrastructure/metallb
 # (only after controllers/CRDs exist, or reconcile will stuck-fail).
 ```
 
-4. Change the demo Service to `type: LoadBalancer` (see metallb README). Until then,
-   NodePort `30080` on any node still works for local drills.
+4. Switch the demo Service to LoadBalancer (opt-in kustomize, not in default Flux):
+
+```bash
+kubectl apply -k gitops/apps/demo-loadbalancer
+# Until then, NodePort 30080 on any node still works for local drills.
+```
 
 ## 4. Flux + demo app
 
 ```bash
 ./scripts/install-flux.sh primary
-# After reconcile:
+# After reconcile (NodePort default):
 curl -fsS "http://$(pulumi -C infra/bare-metal stack output ingressIP):30080/healthz"
-# If you switched the Service to LoadBalancer + MetalLB, use :80 instead of :30080.
+# After demo-loadbalancer + MetalLB:
+# curl -fsS "http://$(pulumi -C infra/bare-metal stack output ingressIP)/healthz"
 ```
 
 Ship **your** service: add a directory under `gitops/apps/` and include it from `gitops/apps/kustomization.yaml` (same pattern as `demo/`).

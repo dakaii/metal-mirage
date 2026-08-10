@@ -1,0 +1,17 @@
+# Optional: demo app with Service type LoadBalancer (MetalLB / BYO LB).
+# Default Flux path uses gitops/apps → demo/ (NodePort 30080).
+#   kubectl apply -k gitops/apps/demo-loadbalancer
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../demo
+patches:
+  - target:
+      kind: Service
+      name: demo
+    patch: |-
+      - op: replace
+        path: /spec/type
+        value: LoadBalancer
+      - op: remove
+        path: /spec/ports/0/nodePort
