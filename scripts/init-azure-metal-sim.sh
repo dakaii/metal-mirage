@@ -14,6 +14,7 @@
 #   --image-id ID        Gallery image resource ID (default: discover latest in talos-images)
 #   --cp N               controlPlaneCount (default: 1)
 #   --workers N          workerCount (default: 1)
+#   --talos-version VER  primary:talosVersion (default: v1.9.5 — must match gallery VHD)
 #   --admin-cidr CIDR    NSG admin CIDR (default: public IP /32)
 #   --write-clusters     Ensure config/clusters.yaml is azure-metal-sim (backup if replacing)
 #   --force-clusters     Always overwrite clusters.yaml from the example
@@ -21,7 +22,8 @@
 #   -h, --help
 #
 # Env: PULUMI_CONFIG_PASSPHRASE (recommended), PULUMI_STACK,
-#      TALOS_IMAGE_ID, TALOS_IMAGE_RG, TALOS_IMAGE_GALLERY, TALOS_IMAGE_DEF, ADMIN_CIDR
+#      TALOS_IMAGE_ID, TALOS_IMAGE_RG, TALOS_IMAGE_GALLERY, TALOS_IMAGE_DEF,
+#      TALOS_VERSION, ADMIN_CIDR
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -33,6 +35,7 @@ STACK="${PULUMI_STACK:-dev}"
 IMAGE_ID="${TALOS_IMAGE_ID:-}"
 CP_COUNT=1
 WORKER_COUNT=1
+TALOS_VERSION="${TALOS_VERSION:-v1.9.5}"
 ADMIN_CIDR="${ADMIN_CIDR:-}"
 WRITE_CLUSTERS=0
 FORCE_CLUSTERS=0
@@ -82,6 +85,11 @@ while [[ $# -gt 0 ]]; do
     --workers)
       need_arg "$1" "${2:-}"
       WORKER_COUNT="$2"
+      shift 2
+      ;;
+    --talos-version)
+      need_arg "$1" "${2:-}"
+      TALOS_VERSION="$2"
       shift 2
       ;;
     --admin-cidr)
@@ -228,6 +236,7 @@ echo "==> Configuring Pulumi stack ${STACK} in ${DIR}"
   pulumi stack select "${STACK}" 2>/dev/null || pulumi stack init "${STACK}"
   pulumi config set azure-native:location "${LOCATION}"
   pulumi config set primary:talosImageId "${IMAGE_ID}"
+  pulumi config set primary:talosVersion "${TALOS_VERSION}"
   pulumi config set primary:adminCidr "${ADMIN_CIDR}"
   pulumi config set primary:controlPlaneCount "${CP_COUNT}"
   pulumi config set primary:workerCount "${WORKER_COUNT}"

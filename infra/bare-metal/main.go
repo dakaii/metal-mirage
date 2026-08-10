@@ -19,6 +19,7 @@ func main() {
 		cfg := config.New(ctx, "baremetal")
 		clusterName := cfgGet(cfg, "clusterName", "metal-mirage-primary")
 		installDisk := cfgGet(cfg, "installDisk", "/dev/sda")
+		talosVersion := cfgGet(cfg, "talosVersion", "v1.9.5")
 		dryRun := cfgGetBool(cfg, "dryRun", true)
 
 		nodes, err := ParseNodesJSON(cfg.Require("nodes"))
@@ -53,7 +54,9 @@ func main() {
 		}
 		diskPatches := pulumi.StringArray{pulumi.String(string(diskPatch))}
 
-		secrets, err := machine.NewSecrets(ctx, "talos-secrets", nil)
+		secrets, err := machine.NewSecrets(ctx, "talos-secrets", &machine.SecretsArgs{
+			TalosVersion: pulumi.String(talosVersion),
+		})
 		if err != nil {
 			return err
 		}
@@ -84,6 +87,7 @@ func main() {
 				ClusterEndpoint: pulumi.String(clusterEndpoint),
 				MachineSecrets:  secrets.MachineSecrets,
 				ConfigPatches:   diskPatches,
+				TalosVersion:    pulumi.String(talosVersion),
 				Docs:            pulumi.Bool(false),
 				Examples:        pulumi.Bool(false),
 			})
@@ -143,6 +147,7 @@ func main() {
 		ctx.Export("clusterEndpoint", pulumi.String(clusterEndpoint))
 		ctx.Export("clusterName", pulumi.String(clusterName))
 		ctx.Export("installDisk", pulumi.String(installDisk))
+		ctx.Export("talosVersion", pulumi.String(talosVersion))
 		ctx.Export("controlPlaneIPs", stringArray(cpIPs))
 		ctx.Export("workerIPs", stringArray(workerIPs))
 		ctx.Export("machineConfigs", pulumi.ToSecret(machineConfigs))
