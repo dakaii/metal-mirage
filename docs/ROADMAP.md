@@ -9,7 +9,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 | Area | Status intent |
 |------|----------------|
 | Pulumi Go stacks: `primary` (Talos metal-sim), `bare-metal` (thin L1), `standby-aks`, `shared` (Traffic Manager + witness), `vpn-gateways` | Ship / harden |
-| Scripts: `register-talos-image`, `up` / `destroy`, `validate-inventory`, `vpn-bootstrap`, `vpn-reconcile-peers`, `failover-promote`, `install-flux`, `deploy-witness` | Documented, runnable |
+| Scripts: `login`, `register-talos-image`, `up` / `destroy`, `validate-inventory`, `vpn-bootstrap`, `vpn-reconcile-peers`, `failover-promote`, `install-flux`, `deploy-witness` | Documented, runnable |
 | GitOps: Flux bootstrap path + demo app + monitoring scrape/alert hints | Kustomize-valid |
 | Docs: ARCHITECTURE, DEPLOY, VPN, CLIENT-PROFILES, COST, PORTABLE, CONFIG, BEST-PRACTICES, LEGAL, this ROADMAP | Honest personal/self-host framing |
 | Optional Phase 3 demo: Clerk + Neon peer registry + WireGuard profile exports in `control-plane/` | Minimal API only; clearly optional |
@@ -22,6 +22,7 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 
 ### Recently landed
 
+- Auth helper: `./scripts/login.sh` (Azure + Pulumi; optional control-plane / Clerk keyless checks)
 - Legality / intended-use note: [LEGAL.md](LEGAL.md) (personal self-host framing; not legal advice)
 - Failover promote helper: `./scripts/failover-promote.sh` (Flux-aware standby scale + optional TM primary disable/failback); stable TM resource names exported from `infra/shared`
 - Contributor UX: secret-scan hygiene — `.gitleaks.toml`, safer `.env.example` placeholders, `credentials-velero` gitignore, local `gitleaks` in CONTRIBUTING

@@ -4,12 +4,24 @@ Config key reference: [CONFIG.md](CONFIG.md). Operator checklist: [BEST-PRACTICE
 
 ## Prerequisites
 
-- Azure CLI (`az login`) with a subscription
+- Azure CLI with a subscription
 - [Pulumi](https://www.pulumi.com/docs/install/) 3.x
 - Go 1.26.x (matches CI / `infra/*/go.mod`; see AGENTS.md)
 - `talosctl`, `kubectl`, `flux` (optional until GitOps step)
 - `wg` / WireGuard tools (for VPN peer scripts)
 - Domain optional (Traffic Manager gives `*.trafficmanager.net`)
+
+Auth helper (opens vendor login flows only when needed):
+
+```bash
+./scripts/login.sh                 # Azure + Pulumi
+./scripts/login.sh --status        # report only
+./scripts/login.sh --local-pulumi  # file-backed Pulumi state
+./scripts/login.sh --control-plane # check control-plane/.env (Neon + Clerk)
+./scripts/login.sh --clerk-keyless # optional Clerk keyless demo keys (AGENTS.md)
+```
+
+Headless / no browser: `AZURE_LOGIN_FLAGS=--use-device-code ./scripts/login.sh`
 
 ## 1. Register Talos image (once)
 
