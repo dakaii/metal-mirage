@@ -40,17 +40,14 @@ for a VM family), the script tries several sizes. Override with `TALOS_HELPER_VM
 / `TALOS_HELPER_VM_SIZES`, raise quota in the portal, or use local mode (no helper VM).
 
 ```bash
-./scripts/register-talos-image.sh --in-azure eastus
-# or local download+upload: ./scripts/register-talos-image.sh eastus
-cd infra/primary
-pulumi stack init dev
-pulumi config set azure-native:location eastus
-pulumi config set primary:talosImageId '/subscriptions/.../galleries/.../versions/...'
-pulumi config set primary:adminCidr "$(curl -fsSL ifconfig.me)/32"
-pulumi config set primary:controlPlaneCount 1
-pulumi config set primary:workerCount 1
 # optional: export PULUMI_CONFIG_PASSPHRASE=…  # avoid retyping the stack passphrase
+./scripts/register-talos-image.sh --in-azure eastus
+# One-shot: clusters.yaml + Pulumi config + up (discovers gallery image if omitted)
+./scripts/init-azure-metal-sim.sh --write-clusters --up
 ```
+
+Manual equivalent (if you prefer): set `primary:talosImageId`, `adminCidr`, counts under
+`infra/primary` — see [CONFIG.md](CONFIG.md).
 
 `./scripts/up.sh primary` **auto-selects** `primary:vmSize` from Azure quota/SKU
 (skips the old `Standard_B2s` default when that family has no capacity). Override with
@@ -60,7 +57,7 @@ pulumi config set primary:workerCount 1
 ## 2. Primary (metal-sim)
 
 ```bash
-./scripts/up.sh primary
+./scripts/up.sh primary   # if you skipped --up above
 mkdir -p .secrets
 pulumi -C infra/primary stack output kubeconfig --show-secrets > .secrets/primary.kubeconfig
 export KUBECONFIG=$PWD/.secrets/primary.kubeconfig
