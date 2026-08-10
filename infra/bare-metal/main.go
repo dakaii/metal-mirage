@@ -1,3 +1,5 @@
+//go:build !syncconfig
+
 package main
 
 import (

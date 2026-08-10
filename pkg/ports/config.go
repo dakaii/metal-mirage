@@ -10,7 +10,7 @@ import (
 
 // RemoteAccessConfig is the remote_access stanza of config/clusters.yaml.
 type RemoteAccessConfig struct {
-	// Provider is wireguard (default) or none.
+	// Provider is none (platform default) or wireguard.
 	Provider string `yaml:"provider"`
 	// PulumiDir selects the RemoteAccess adapter stack (ignored when provider=none).
 	PulumiDir string `yaml:"pulumi_dir"`
@@ -47,12 +47,7 @@ func LoadClustersCapabilities(path string) (*ClustersCapabilities, error) {
 
 // ValidateRemoteAccess enforces the RemoteAccess port config contract.
 func ValidateRemoteAccess(ra RemoteAccessConfig, vpn VPNAlias) error {
-	provider := strings.TrimSpace(ra.Provider)
-	if provider == "" {
-		// Legacy files may omit remote_access; treat as wireguard if vpn dir present,
-		// otherwise still default to the OSS example provider.
-		provider = string(RemoteAccessWireGuard)
-	}
+	provider := string(EffectiveRemoteAccessProvider(ra))
 	switch RemoteAccessProvider(provider) {
 	case RemoteAccessWireGuard, RemoteAccessNone:
 		// ok
@@ -75,10 +70,12 @@ func ValidateRemoteAccess(ra RemoteAccessConfig, vpn VPNAlias) error {
 }
 
 // EffectiveRemoteAccessProvider returns the resolved provider id.
+// Empty provider defaults to none (metal-first / platform-only). Explicit
+// "wireguard" enables the city-exit adapter.
 func EffectiveRemoteAccessProvider(ra RemoteAccessConfig) RemoteAccessProvider {
 	p := strings.TrimSpace(ra.Provider)
 	if p == "" {
-		return RemoteAccessWireGuard
+		return RemoteAccessNone
 	}
 	return RemoteAccessProvider(p)
 }
@@ -100,10 +97,10 @@ func EffectiveRemoteAccessDir(ra RemoteAccessConfig, vpn VPNAlias) string {
 // ParseRemoteAccessProvider validates a provider string.
 func ParseRemoteAccessProvider(s string) (RemoteAccessProvider, error) {
 	switch RemoteAccessProvider(strings.TrimSpace(s)) {
-	case "", RemoteAccessWireGuard:
-		return RemoteAccessWireGuard, nil
-	case RemoteAccessNone:
+	case "", RemoteAccessNone:
 		return RemoteAccessNone, nil
+	case RemoteAccessWireGuard:
+		return RemoteAccessWireGuard, nil
 	default:
 		return "", fmt.Errorf("unsupported remote_access provider %q", s)
 	}

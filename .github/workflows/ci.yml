@@ -62,6 +62,7 @@ jobs:
           ./kustomize build gitops/apps >/dev/null
           ./kustomize build gitops/infrastructure >/dev/null
           ./kustomize build gitops/infrastructure/monitoring >/dev/null
+          ./kustomize build gitops/infrastructure/metallb >/dev/null
           ./kustomize build gitops/clusters/primary >/dev/null
           ./kustomize build gitops/clusters/standby >/dev/null
 

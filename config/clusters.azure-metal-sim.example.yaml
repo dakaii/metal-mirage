@@ -1,0 +1,28 @@
+# Lab without home hardware: Talos on Azure VMs (metal-sim).
+# Copy into config/clusters.yaml (or merge the primary: block) when you want
+# the Azure primary path instead of bare-metal.
+#
+# Then:
+#   ./scripts/register-talos-image.sh eastus
+#   ./scripts/login.sh
+#   ./scripts/up.sh primary
+
+primary:
+  provisioner: azure-metal-sim
+  pulumi_dir: infra/primary
+  profile: primary
+
+standby:
+  provisioner: aks
+  pulumi_dir: infra/standby-aks
+  profile: standby
+
+shared:
+  pulumi_dir: infra/shared
+
+remote_access:
+  provider: none # set wireguard to enable city-exit adapter
+  pulumi_dir: infra/vpn-gateways
+
+vpn:
+  pulumi_dir: infra/vpn-gateways

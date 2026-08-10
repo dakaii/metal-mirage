@@ -22,12 +22,12 @@ func TestLoadClustersCapabilitiesRepoDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if EffectiveRemoteAccessProvider(doc.RemoteAccess) != RemoteAccessWireGuard {
-		t.Fatalf("provider: %q", doc.RemoteAccess.Provider)
+	if EffectiveRemoteAccessProvider(doc.RemoteAccess) != RemoteAccessNone {
+		t.Fatalf("provider: %q (want none)", doc.RemoteAccess.Provider)
 	}
 	dir := EffectiveRemoteAccessDir(doc.RemoteAccess, doc.VPN)
-	if dir != "infra/vpn-gateways" {
-		t.Fatalf("dir: %q", dir)
+	if dir != "" {
+		t.Fatalf("dir: %q (want empty when none)", dir)
 	}
 }
 
@@ -61,8 +61,12 @@ func TestValidateRemoteAccessRequiresDir(t *testing.T) {
 func TestParseRemoteAccessProvider(t *testing.T) {
 	t.Parallel()
 	p, err := ParseRemoteAccessProvider("")
-	if err != nil || p != RemoteAccessWireGuard {
+	if err != nil || p != RemoteAccessNone {
 		t.Fatalf("empty: %v %v", p, err)
+	}
+	p, err = ParseRemoteAccessProvider("wireguard")
+	if err != nil || p != RemoteAccessWireGuard {
+		t.Fatalf("wireguard: %v %v", p, err)
 	}
 	if _, err := ParseRemoteAccessProvider("openvpn"); err == nil {
 		t.Fatal("expected error")

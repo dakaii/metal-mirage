@@ -36,12 +36,12 @@ yaml_section_key() {
 }
 
 remote_access_provider() {
-  # remote_access_provider — wireguard (default) | none
+  # remote_access_provider — none (platform default) | wireguard
   local p=""
   p="$(yaml_section_key remote_access provider)"
   p="$(printf '%s' "${p}" | tr -d '[:space:]')"
   if [[ -z "${p}" ]]; then
-    echo "wireguard"
+    echo "none"
     return 0
   fi
   printf '%s\n' "${p}"

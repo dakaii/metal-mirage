@@ -16,6 +16,17 @@ Capability ports (VPN as optional adapter): [CAPABILITY-PORTS.md](CAPABILITY-POR
 
 ## Deploy
 
+RemoteAccess is **off by default** (`remote_access.provider: none`). With that
+default, `./scripts/up.sh vpn` exits 0 and **skips** the stack — enable the
+adapter first:
+
+```yaml
+# config/clusters.yaml
+remote_access:
+  provider: wireguard
+  pulumi_dir: infra/vpn-gateways
+```
+
 ```bash
 ./scripts/up.sh vpn
 ./scripts/vpn-bootstrap.sh laptop
