@@ -14,12 +14,14 @@
 #   --image-id ID        Gallery image resource ID (default: discover latest in talos-images)
 #   --cp N               controlPlaneCount (default: 1)
 #   --workers N          workerCount (default: 1)
-#   --admin-cidr CIDR    NSG admin CIDR (default: $(curl ifconfig.me)/32)
-#   --write-clusters     Copy config/clusters.azure-metal-sim.example.yaml → clusters.yaml
+#   --admin-cidr CIDR    NSG admin CIDR (default: public IP /32)
+#   --write-clusters     Ensure config/clusters.yaml is azure-metal-sim (backup if replacing)
+#   --force-clusters     Always overwrite clusters.yaml from the example
 #   --up                 Run ./scripts/up.sh primary after config
 #   -h, --help
 #
-# Env: PULUMI_CONFIG_PASSPHRASE (recommended), PULUMI_STACK, TALOS_IMAGE_RG / GALLERY / DEF
+# Env: PULUMI_CONFIG_PASSPHRASE (recommended), PULUMI_STACK,
+#      TALOS_IMAGE_ID, TALOS_IMAGE_RG, TALOS_IMAGE_GALLERY, TALOS_IMAGE_DEF, ADMIN_CIDR
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -33,13 +35,22 @@ CP_COUNT=1
 WORKER_COUNT=1
 ADMIN_CIDR="${ADMIN_CIDR:-}"
 WRITE_CLUSTERS=0
+FORCE_CLUSTERS=0
 DO_UP=0
 RG="${TALOS_IMAGE_RG:-talos-images}"
 GALLERY="${TALOS_IMAGE_GALLERY:-talosgallery}"
 IMAGE_DEF="${TALOS_IMAGE_DEF:-talos}"
 
 usage() {
-  sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+need_arg() {
+  local flag="$1"
+  if [[ $# -lt 2 || -z "${2:-}" || "${2:-}" == -* ]]; then
+    echo "flag ${flag} requires a value" >&2
+    exit 1
+  fi
 }
 
 while [[ $# -gt 0 ]]; do
@@ -49,31 +60,42 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     --location)
+      need_arg "$1" "${2:-}"
       LOCATION="$2"
       shift 2
       ;;
     --stack)
+      need_arg "$1" "${2:-}"
       STACK="$2"
       shift 2
       ;;
     --image-id)
+      need_arg "$1" "${2:-}"
       IMAGE_ID="$2"
       shift 2
       ;;
     --cp)
+      need_arg "$1" "${2:-}"
       CP_COUNT="$2"
       shift 2
       ;;
     --workers)
+      need_arg "$1" "${2:-}"
       WORKER_COUNT="$2"
       shift 2
       ;;
     --admin-cidr)
+      need_arg "$1" "${2:-}"
       ADMIN_CIDR="$2"
       shift 2
       ;;
     --write-clusters)
       WRITE_CLUSTERS=1
+      shift
+      ;;
+    --force-clusters)
+      WRITE_CLUSTERS=1
+      FORCE_CLUSTERS=1
       shift
       ;;
     --up)
@@ -95,6 +117,11 @@ done
 need pulumi
 need curl
 
+if ! [[ "${CP_COUNT}" =~ ^[0-9]+$ && "${WORKER_COUNT}" =~ ^[0-9]+$ ]]; then
+  echo "--cp and --workers must be non-negative integers" >&2
+  exit 1
+fi
+
 discover_image_id() {
   need az
   if ! az account show >/dev/null 2>&1; then
@@ -102,12 +129,21 @@ discover_image_id() {
     exit 1
   fi
   local id
+  # Prefer newest by publishedDate; fall back to name sort for older API shapes.
   id="$(az sig image-version list \
     --resource-group "${RG}" \
     --gallery-name "${GALLERY}" \
     --gallery-image-definition "${IMAGE_DEF}" \
-    --query "sort_by(@, &name)[-1].id" \
+    --query "max_by(@, &publishingProfile.publishedDate).id" \
     -o tsv 2>/dev/null || true)"
+  if [[ -z "${id}" || "${id}" == "null" ]]; then
+    id="$(az sig image-version list \
+      --resource-group "${RG}" \
+      --gallery-name "${GALLERY}" \
+      --gallery-image-definition "${IMAGE_DEF}" \
+      --query "sort_by(@, &name)[-1].id" \
+      -o tsv 2>/dev/null || true)"
+  fi
   if [[ -z "${id}" || "${id}" == "null" ]]; then
     echo "no gallery image in ${RG}/${GALLERY}/${IMAGE_DEF}." >&2
     echo "  Run: ./scripts/register-talos-image.sh --in-azure ${LOCATION}" >&2
@@ -117,6 +153,22 @@ discover_image_id() {
   printf '%s\n' "${id}"
 }
 
+detect_admin_cidr() {
+  local ip=""
+  local url
+  for url in "https://ifconfig.me" "https://api.ipify.org" "https://icanhazip.com"; do
+    ip="$(curl -fsSL --max-time 5 "${url}" 2>/dev/null | tr -d '[:space:]' || true)"
+    # Basic IPv4 check (Talos NSG path is /32-oriented for laptop labs).
+    if [[ "${ip}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      printf '%s/32\n' "${ip}"
+      return 0
+    fi
+  done
+  echo "could not detect public IPv4 for adminCidr (tried ifconfig.me / ipify / icanhazip)." >&2
+  echo "  Pass --admin-cidr 'x.x.x.x/32' explicitly." >&2
+  exit 1
+}
+
 if [[ "${WRITE_CLUSTERS}" -eq 1 ]]; then
   src="${ROOT}/config/clusters.azure-metal-sim.example.yaml"
   dst="${ROOT}/config/clusters.yaml"
@@ -124,13 +176,21 @@ if [[ "${WRITE_CLUSTERS}" -eq 1 ]]; then
     echo "missing ${src}" >&2
     exit 1
   fi
+  prov=""
   if [[ -f "${dst}" ]]; then
-    bak="${dst}.bak.$(date +%Y%m%d%H%M%S)"
-    cp "${dst}" "${bak}"
-    echo "==> backed up clusters.yaml → ${bak#"${ROOT}"/}"
+    prov="$(yaml_section_key primary provisioner | tr -d '[:space:]')"
   fi
-  cp "${src}" "${dst}"
-  echo "==> wrote config/clusters.yaml (azure-metal-sim)"
+  if [[ "${FORCE_CLUSTERS}" -eq 0 && "${prov}" == "azure-metal-sim" ]]; then
+    echo "==> config/clusters.yaml already azure-metal-sim (use --force-clusters to overwrite)"
+  else
+    if [[ -f "${dst}" ]]; then
+      bak="${dst}.bak.$(date +%Y%m%d%H%M%S)"
+      cp "${dst}" "${bak}"
+      echo "==> backed up clusters.yaml → ${bak#"${ROOT}"/}"
+    fi
+    cp "${src}" "${dst}"
+    echo "==> wrote config/clusters.yaml (azure-metal-sim)"
+  fi
 else
   prov="$(yaml_section_key primary provisioner | tr -d '[:space:]')"
   if [[ "${prov}" != "azure-metal-sim" ]]; then
@@ -154,7 +214,11 @@ echo "==> talosImageId: ${IMAGE_ID}"
 
 if [[ -z "${ADMIN_CIDR}" ]]; then
   echo "==> Detecting public IP for adminCidr"
-  ADMIN_CIDR="$(curl -fsSL ifconfig.me)/32"
+  ADMIN_CIDR="$(detect_admin_cidr)"
+fi
+if ! [[ "${ADMIN_CIDR}" =~ ^[0-9./]+$ || "${ADMIN_CIDR}" =~ : ]]; then
+  echo "adminCidr looks invalid: ${ADMIN_CIDR}" >&2
+  exit 1
 fi
 echo "==> adminCidr: ${ADMIN_CIDR}"
 

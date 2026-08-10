@@ -83,7 +83,12 @@ ensure_azure_metal_sim_vm_size() {
   w_n="$(pulumi -C "${ROOT}/${dir}" config get primary:workerCount 2>/dev/null || true)"
   cp_n="${cp_n:-1}"
   w_n="${w_n:-1}"
-  cores=$((2 * (cp_n + w_n)))
+  if ! [[ "${cp_n}" =~ ^[0-9]+$ && "${w_n}" =~ ^[0-9]+$ ]]; then
+    echo "error: primary:controlPlaneCount/workerCount must be integers (got cp=${cp_n} workers=${w_n})" >&2
+    exit 1
+  fi
+  # Candidate SKUs are 2-vCPU; scale by node count.
+  cores=$(($(azure_vm_size_cores Standard_D2s_v4) * (cp_n + w_n)))
 
   echo "==> Auto-selecting primary:vmSize in ${loc} (need ~${cores} vCPUs for ${cp_n} cp + ${w_n} workers)"
   if ! size="$(pick_azure_vm_size "${loc}" "${current}" "${cores}")"; then
@@ -147,12 +152,14 @@ vpn_dir() {
   resolve_pulumi_dir vpn
 }
 
+PRIMARY_PROVISIONER="$(yaml_section_key primary provisioner | tr -d '[:space:]')"
+
 case "${TARGET}" in
   primary)
     # bare-metal: config/clusters.yaml is SoT — sync into Pulumi before up.
-    if [[ "$(yaml_section_key primary provisioner | tr -d '[:space:]')" == "bare-metal" ]]; then
+    if [[ "${PRIMARY_PROVISIONER}" == "bare-metal" ]]; then
       "${ROOT}/scripts/sync-baremetal-config.sh"
-    elif [[ "$(yaml_section_key primary provisioner | tr -d '[:space:]')" == "azure-metal-sim" ]]; then
+    elif [[ "${PRIMARY_PROVISIONER}" == "azure-metal-sim" ]]; then
       ensure_azure_metal_sim_vm_size
     fi
     up_one "$(primary_dir)"
@@ -174,9 +181,9 @@ case "${TARGET}" in
     up_one "${dir}"
     ;;
   all)
-    if [[ "$(yaml_section_key primary provisioner | tr -d '[:space:]')" == "bare-metal" ]]; then
+    if [[ "${PRIMARY_PROVISIONER}" == "bare-metal" ]]; then
       "${ROOT}/scripts/sync-baremetal-config.sh"
-    elif [[ "$(yaml_section_key primary provisioner | tr -d '[:space:]')" == "azure-metal-sim" ]]; then
+    elif [[ "${PRIMARY_PROVISIONER}" == "azure-metal-sim" ]]; then
       ensure_azure_metal_sim_vm_size
     fi
     up_one "$(primary_dir)"

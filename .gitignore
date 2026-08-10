@@ -8,6 +8,8 @@
 kubeconfig*
 talosconfig*
 .secrets/
+# init-azure-metal-sim.sh --write-clusters backups
+config/clusters.yaml.bak.*
 vpn-clients/
 *.pem
 *.key

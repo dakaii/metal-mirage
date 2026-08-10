@@ -25,11 +25,12 @@ azure_vm_size_candidates() {
     Standard_E2s_v3
 }
 
-# Map VM size → Compute quota name.value (az vm list-usage).
-azure_vm_size_family() {
+# Map VM size → Compute quota name.value candidates (az vm list-usage).
+# Prints one or more family names (first match with quota wins).
+azure_vm_size_families() {
   case "$1" in
-    Standard_B2s) echo standardBSFamily ;;
-    Standard_B2ms) echo standardBmsFamily ;;
+    # Bs + Bms share "Standard B Family" (standardBSFamily) on most subs.
+    Standard_B2s | Standard_B2ms) echo standardBSFamily; echo standardBmsFamily ;;
     Standard_D2s_v5) echo standardDSv5Family ;;
     Standard_D2s_v4) echo standardDSv4Family ;;
     Standard_D2s_v3) echo standardDSv3Family ;;
@@ -48,26 +49,45 @@ azure_vm_size_cores() {
   echo 2
 }
 
-# Returns 0 if usage JSON allows allocating +cores on family.
+# Returns 0 if usage JSON allows allocating +cores on any of the family names.
+# Also enforces Total Regional vCPUs ("cores") when that metric is present.
 azure_vm_family_has_quota() {
-  local usage_json="$1" family="$2" cores="$3"
+  local usage_json="$1" cores="$2"
+  shift 2
+  local families=("$@")
+  local fam_json
+  fam_json="$(printf '%s\n' "${families[@]}" | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')"
   printf '%s' "${usage_json}" | python3 -c '
 import json, sys
-family = sys.argv[1]
-cores = int(sys.argv[2])
+cores = int(sys.argv[1])
+families = {f.lower() for f in json.loads(sys.argv[2])}
 usage = json.load(sys.stdin)
-for u in usage:
-    name = (u.get("name") or {}).get("value") or ""
-    if name != family:
+
+def entry(name_value: str):
+    for u in usage:
+        name = ((u.get("name") or {}).get("value") or "")
+        if name.lower() == name_value.lower():
+            return int(u.get("limit") or 0), int(u.get("currentValue") or 0)
+    return None
+
+regional = entry("cores")
+if regional is not None:
+    limit, current = regional
+    if limit > 0 and current + cores > limit:
+        sys.exit(1)
+
+for fam in families:
+    got = entry(fam)
+    if got is None:
         continue
-    limit = int(u.get("limit") or 0)
-    current = int(u.get("currentValue") or 0)
-    sys.exit(0 if limit > 0 and current + cores <= limit else 1)
+    limit, current = got
+    if limit > 0 and current + cores <= limit:
+        sys.exit(0)
 sys.exit(1)
-' "${family}" "${cores}"
+' "${cores}" "${fam_json}"
 }
 
-# Returns 0 if SKU is restricted for this subscription in the location.
+# Returns 0 if SKU is missing or restricted for this subscription in the location.
 azure_vm_sku_blocked() {
   local location="$1" size="$2"
   local raw
@@ -75,19 +95,20 @@ azure_vm_sku_blocked() {
     --location "${location}" \
     --size "${size}" \
     --resource-type virtualMachines \
-    --query "[?name=='${size}'].restrictions" \
+    --query "[?name=='${size}']" \
     -o json 2>/dev/null || echo '[]')"
   printf '%s' "${raw}" | python3 -c '
 import json, sys
 data = json.load(sys.stdin)
-restrictions = []
-if isinstance(data, list) and data:
-    restrictions = data[0] if isinstance(data[0], list) else data
-for r in restrictions or []:
+if not data:
+    sys.exit(0)  # unknown / not offered → treat as blocked
+sku = data[0] if isinstance(data, list) else data
+restrictions = sku.get("restrictions") or []
+for r in restrictions:
     reason = r.get("reasonCode") or ""
     rtype = r.get("type") or ""
     if reason == "NotAvailableForSubscription":
-        sys.exit(0)  # blocked
+        sys.exit(0)
     if rtype == "Location" and reason:
         sys.exit(0)
 sys.exit(1)  # not blocked
@@ -96,15 +117,13 @@ sys.exit(1)  # not blocked
 
 # Print first viable size for location.
 # Usage: pick_azure_vm_size <location> [preferred_size] [total_cores_needed]
-#   total_cores_needed defaults to one VM (2). For primary lab with 1 CP + 1
-#   worker of the same size, pass 4.
 # Progress lines go to stderr; chosen size to stdout.
 pick_azure_vm_size() {
   local location="$1"
   local preferred="${2:-}"
   local total_cores="${3:-}"
-  local usage_json size family per_vm need
-  local -a sizes=()
+  local usage_json size per_vm need
+  local -a sizes=() families=()
 
   if [[ -n "${preferred}" ]]; then
     sizes+=("${preferred}")
@@ -119,18 +138,21 @@ pick_azure_vm_size() {
     [[ " ${seen} " == *" ${size} "* ]] && continue
     seen+=" ${size}"
 
-    family="$(azure_vm_size_family "${size}" 2>/dev/null || true)"
-    if [[ -z "${family}" ]]; then
+    families=()
+    while IFS= read -r fam; do
+      [[ -n "${fam}" ]] && families+=("${fam}")
+    done < <(azure_vm_size_families "${size}" 2>/dev/null || true)
+    if [[ "${#families[@]}" -eq 0 ]]; then
       continue
     fi
     per_vm="$(azure_vm_size_cores "${size}")"
     need="${total_cores:-${per_vm}}"
-    if ! azure_vm_family_has_quota "${usage_json}" "${family}" "${need}"; then
-      echo "    skip ${size}: need ${need} ${family} vCPUs in ${location}" >&2
+    if ! azure_vm_family_has_quota "${usage_json}" "${need}" "${families[@]}"; then
+      echo "    skip ${size}: need ${need} vCPUs (${families[*]}) in ${location}" >&2
       continue
     fi
     if azure_vm_sku_blocked "${location}" "${size}"; then
-      echo "    skip ${size}: SKU restricted in ${location}" >&2
+      echo "    skip ${size}: SKU missing/restricted in ${location}" >&2
       continue
     fi
     printf '%s\n' "${size}"

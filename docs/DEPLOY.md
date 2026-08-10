@@ -44,6 +44,7 @@ for a VM family), the script tries several sizes. Override with `TALOS_HELPER_VM
 ./scripts/register-talos-image.sh --in-azure eastus
 # One-shot: clusters.yaml + Pulumi config + up (discovers gallery image if omitted)
 ./scripts/init-azure-metal-sim.sh --write-clusters --up
+# Already on azure-metal-sim clusters.yaml? omit --write-clusters, or use --force-clusters to replace.
 ```
 
 Manual equivalent (if you prefer): set `primary:talosImageId`, `adminCidr`, counts under
