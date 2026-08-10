@@ -42,6 +42,10 @@ Client profile minting for WireGuard stays in
 [`control-plane/internal/tunnel`](../control-plane/internal/tunnel) — see
 [CLIENT-PROFILES.md](CLIENT-PROFILES.md).
 
+Operator scripts (`vpn-bootstrap`, `vpn-reconcile-peers`, scrape snippet) resolve
+the adapter directory via `require_remote_access_dir` in `scripts/lib.sh` (same
+`remote_access.pulumi_dir` as `up.sh`).
+
 ## What this re-arch *does*
 
 - Names the seams so VPN is clearly an **adapter**

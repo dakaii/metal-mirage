@@ -8,10 +8,11 @@ STACK="${PULUMI_STACK:-dev}"
 
 need pulumi "Install: https://www.pulumi.com/docs/install/"
 
-select_stack infra/vpn-gateways
-IP="$(require_stack_output infra/vpn-gateways publicIP "run ./scripts/up.sh vpn first")"
-PORT="$(require_stack_output infra/vpn-gateways metricsPort "run ./scripts/up.sh vpn first")"
-CITY="$(require_stack_output infra/vpn-gateways city "run ./scripts/up.sh vpn first")"
+VPN_DIR="$(require_remote_access_dir)"
+select_stack "${VPN_DIR}"
+IP="$(require_stack_output "${VPN_DIR}" publicIP "run ./scripts/up.sh vpn first")"
+PORT="$(require_stack_output "${VPN_DIR}" metricsPort "run ./scripts/up.sh vpn first")"
+CITY="$(require_stack_output "${VPN_DIR}" city "run ./scripts/up.sh vpn first")"
 
 cat <<EOF
 # stack=${STACK}  target=${IP}:${PORT}  city=${CITY}

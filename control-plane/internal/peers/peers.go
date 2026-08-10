@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -277,6 +278,11 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unsupported protocol", http.StatusBadRequest)
 		return
 	}
+	endpoint := tunnel.DefaultEndpoint(h.cfg.VPNEndpoint, h.cfg.VPNServerPubKey, h.cfg.VPNCity)
+	if err := validateExportEndpoint(protoID, endpoint); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	priv, pub, err := proto.MintKeys()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -299,8 +305,13 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		PrivateKey:  priv,
 		PublicKey:   pub,
 		AddressCIDR: peer.AllocatedIP + "/32",
-	}, tunnel.DefaultEndpoint(h.cfg.VPNEndpoint, h.cfg.VPNServerPubKey, h.cfg.VPNCity))
+	}, endpoint)
 	if err != nil {
+		// Best-effort rollback so a render failure does not leave an orphan peer.
+		if delErr := h.store.Delete(r.Context(), uid, peer.ID); delErr != nil {
+			http.Error(w, fmt.Sprintf("render exports: %v (also failed to roll back peer %s: %v)", err, peer.ID, delErr), http.StatusInternalServerError)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -311,6 +322,21 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		Config:     tunnel.ConfBody(exports),
 		Exports:    exports,
 	})
+}
+
+// validateExportEndpoint checks server-side fields required to render client exports
+// *before* inserting a peer row (avoids orphans when VPN_* env is incomplete).
+func validateExportEndpoint(id tunnel.ProtocolID, endpoint tunnel.Endpoint) error {
+	if id != tunnel.ProtocolWireGuard {
+		return nil
+	}
+	if strings.TrimSpace(endpoint.HostPort) == "" {
+		return fmt.Errorf("VPN_ENDPOINT is required to mint wireguard client exports (host:port)")
+	}
+	if strings.TrimSpace(endpoint.ServerPublicKey) == "" {
+		return fmt.Errorf("VPN_SERVER_PUBLIC_KEY is required to mint wireguard client exports")
+	}
+	return nil
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {

@@ -52,9 +52,10 @@ case "${TARGET}" in
     # cluster deletion (primary/standby) removes in-cluster Flux anyway.
     ra_dir="$(resolve_pulumi_dir vpn)"
     if [[ -z "${ra_dir}" ]]; then
+      # provider=none: still attempt default adapter dir so leftover stacks are not stranded.
       ra_dir="infra/vpn-gateways"
     fi
-    destroy_one "${ra_dir}" || true
+    destroy_one "${ra_dir}"
     destroy_one infra/shared
     destroy_one infra/flux-bootstrap || true
     destroy_one "$(standby_dir)"

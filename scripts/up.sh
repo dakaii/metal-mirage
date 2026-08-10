@@ -97,7 +97,12 @@ case "${TARGET}" in
     ;;
   vpn | remote_access)
     # none already handled above (before need pulumi)
-    up_one "$(vpn_dir)"
+    dir="$(vpn_dir)"
+    if [[ -z "${dir}" ]]; then
+      echo "remote_access.pulumi_dir unresolved — set remote_access.pulumi_dir in config/clusters.yaml" >&2
+      exit 1
+    fi
+    up_one "${dir}"
     ;;
   all)
     up_one "$(primary_dir)"
@@ -107,7 +112,12 @@ case "${TARGET}" in
     if [[ "$(remote_access_provider)" == "none" ]]; then
       echo "==> remote_access.provider=none — skipping WireGuard adapter"
     else
-      up_one "$(vpn_dir)"
+      dir="$(vpn_dir)"
+      if [[ -z "${dir}" ]]; then
+        echo "remote_access.pulumi_dir unresolved — set remote_access.pulumi_dir in config/clusters.yaml" >&2
+        exit 1
+      fi
+      up_one "${dir}"
     fi
     ;;
   *)

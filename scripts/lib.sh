@@ -47,6 +47,22 @@ remote_access_provider() {
   printf '%s\n' "${p}"
 }
 
+require_remote_access_dir() {
+  # require_remote_access_dir — prints adapter pulumi dir; exits if RemoteAccess disabled/unresolved
+  if [[ "$(remote_access_provider)" == "none" ]]; then
+    echo "remote_access.provider=none — enable wireguard (or set remote_access.provider) before using VPN adapter scripts" >&2
+    echo "  See docs/CAPABILITY-PORTS.md" >&2
+    exit 1
+  fi
+  local dir=""
+  dir="$(resolve_pulumi_dir vpn)"
+  if [[ -z "${dir}" ]]; then
+    echo "remote_access.pulumi_dir unresolved (set remote_access.pulumi_dir or vpn.pulumi_dir in config/clusters.yaml)" >&2
+    exit 1
+  fi
+  printf '%s\n' "${dir}"
+}
+
 resolve_pulumi_dir() {
   # resolve_pulumi_dir <profile>  — reads config/clusters.yaml pulumi_dir
   # Profiles: primary | standby | shared | vpn | remote_access
