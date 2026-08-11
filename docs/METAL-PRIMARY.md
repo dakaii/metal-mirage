@@ -125,8 +125,10 @@ kubectl apply -k gitops/apps/demo-loadbalancer
 
 ## 4. Flux + demo app
 
+`./scripts/up.sh primary` installs Flux when kubeconfig is non-empty (skip:
+`SKIP_FLUX=1`). Re-run GitOps only with `./scripts/up.sh flux`.
+
 ```bash
-./scripts/install-flux.sh primary
 # After reconcile (NodePort default):
 curl -fsS "http://$(pulumi -C infra/bare-metal stack output ingressIP):30080/healthz"
 # After demo-loadbalancer + MetalLB:

@@ -12,18 +12,25 @@ need pulumi "Install: https://www.pulumi.com/docs/install/"
 
 destroy_one() {
   local dir="$1"
-  echo "==> pulumi destroy (${dir}, stack=${STACK})"
+  local stack="${2:-${STACK}}"
+  echo "==> pulumi destroy (${dir}, stack=${stack})"
   (
     cd "${ROOT}/${dir}"
-    if ! pulumi stack select "${STACK}" 2>/dev/null; then
-      echo "skip: no stack ${STACK} in ${dir}"
+    if ! pulumi stack select "${stack}" 2>/dev/null; then
+      echo "skip: no stack ${stack} in ${dir}"
       return 0
     fi
     if ! pulumi destroy --yes; then
-      echo "error: destroy failed for ${dir} — fix cloud/Pulumi state before retrying" >&2
+      echo "error: destroy failed for ${dir} (stack=${stack}) — fix cloud/Pulumi state before retrying" >&2
       return 1
     fi
   )
+}
+
+# up.sh uses STACK for primary Flux and ${STACK}-standby for standby Flux.
+destroy_flux() {
+  destroy_one infra/flux-bootstrap "${STACK}" || true
+  destroy_one infra/flux-bootstrap "${STACK}-standby" || true
 }
 
 primary_dir() {
@@ -46,7 +53,7 @@ case "${TARGET}" in
     fi
     destroy_one "${dir}"
     ;;
-  flux)     destroy_one infra/flux-bootstrap ;;
+  flux)     destroy_flux ;;
   all)
     # Tear down dependents first. flux-bootstrap only removes Helm release;
     # cluster deletion (primary/standby) removes in-cluster Flux anyway.
@@ -57,7 +64,7 @@ case "${TARGET}" in
     fi
     destroy_one "${ra_dir}"
     destroy_one infra/shared
-    destroy_one infra/flux-bootstrap || true
+    destroy_flux
     destroy_one "$(standby_dir)"
     destroy_one "$(primary_dir)"
     # If switching provisioners, also try the sibling primary stack so leftover

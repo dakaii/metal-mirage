@@ -160,7 +160,10 @@ Peer configs are written under `vpn-clients/` (gitignored).
 | `flux:branch` | no | `main` |
 | `flux:clusterPath` | no | `./gitops/clusters/primary` | Documented next-step path |
 
-After controllers install, run `scripts/install-flux.sh` to create `GitRepository` + root `Kustomization`.
+`./scripts/up.sh primary|standby|flux` wires kubeconfig + `repoUrl` / `clusterPath` and
+runs `scripts/install-flux.sh` (GitRepository + root `Kustomization`). Standby uses
+Pulumi stack `${PULUMI_STACK}-standby` so it does not clobber the primary Flux stack.
+Skip: `SKIP_FLUX=1`.
 
 ## `control-plane/` (optional Phase 3)
 

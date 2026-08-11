@@ -54,7 +54,7 @@ Short, actionable checklist for operators and contributors. Scope is **self-host
 
 | Do | Why |
 |----|-----|
-| Controllers via `infra/flux-bootstrap` (or `flux install`); source + root via `scripts/install-flux.sh` | Clear split |
+| Controllers via `infra/flux-bootstrap`; source + root via `scripts/install-flux.sh` (both from `up.sh`) | Clear split; `SKIP_FLUX=1` to opt out |
 | Cluster overlays are real kustomize (`kustomization.yaml` → `flux.yaml` CRs) | Flux path must `kustomize build` cleanly |
 | `prune: true` on Flux Kustomizations | Drift cleanup |
 | Standby patches `replicas: 0` on demo | Cold standby / cost |
