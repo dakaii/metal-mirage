@@ -60,16 +60,19 @@ gallery VHD). Azure forbids changing VM `customData` in place; after first creat
 config updates go through Talos `ConfigurationApply` (Pulumi ignores `osProfile.customData`
 drift). To rewrite first-boot customData, replace the VMs explicitly.
 
-`./scripts/up.sh primary` also refreshes `primary:adminCidr` from your current public IP
-(NSG allow for Talos `:50000`). Without that, a drifted laptop IP causes
-`dial tcp …:50000: i/o timeout`. For azure-metal-sim the auto value is a **/24**
-(not `/32`) because CGNAT often flips the last octet mid-Bootstrap while
-`ConfigurationApply` already succeeded. Force a host lock with
-`ADMIN_CIDR_PREFIX_LEN=32`, set any CIDR via `ADMIN_CIDR=…` (lab unblock:
-`ADMIN_CIDR=0.0.0.0/0` — once set, auto-refresh leaves it alone), or skip via
-`SKIP_ADMIN_CIDR_AUTO=1`. Quick probe: `nc -vz <apiLoadBalancerIP> 6443`
-(open to `*`) vs `:50000` (`adminCidr` only) — if 6443 works and 50000 hangs,
-widen/refresh the CIDR.
+`./scripts/up.sh primary` sets `primary:adminCidr` for azure-metal-sim. The lab
+default is **`0.0.0.0/0`**: residential CGNAT often jumps across `/24`s mid-Bootstrap
+(e.g. `187.15.98.0/24` → `187.15.91.0/24`), which looks like
+`dial tcp …:50000: i/o timeout` even after a “successful” `ConfigurationApply`.
+Tighten with `ADMIN_CIDR=…` or `ADMIN_CIDR_PREFIX_LEN=24|32`, or skip via
+`SKIP_ADMIN_CIDR_AUTO=1`. Before `pulumi up`, `up.sh` **warns** if `<api>:50000`
+is unreachable (skip with `SKIP_TALOS_APID_PREFLIGHT=1`); it does not hard-fail,
+because the NSG update is part of the same `up`.
+Quick probe: `nc -vz <apiLoadBalancerIP> 6443` (open to `*`) vs `:50000`
+(`adminCidr` only) — if 6443 works and 50000 hangs, widen the CIDR.
+If preview wants `talos-secrets` **replace** on a half-bootstrapped cluster, stop:
+Secrets replace + `IgnoreChanges(customData)` leaves stale first-boot identity —
+`--replace` the VMs or destroy/recreate primary.
 
 ## 2. Primary (metal-sim)
 

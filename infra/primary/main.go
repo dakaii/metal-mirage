@@ -280,7 +280,9 @@ func main() {
 			}
 		}
 
-		// NSG is already a DependsOn of each cp ConfigurationApply above.
+		// When cp ConfigurationApply already exists, Bootstrap must still wait on
+		// in-place NSG adminCidr updates — Apply's DependsOn(nsg) does not re-run.
+		bootstrapDeps = append(bootstrapDeps, nsg)
 		bootstrap, err := machine.NewBootstrap(ctx, "bootstrap", &machine.BootstrapArgs{
 			Node:                firstNode,
 			ClientConfiguration: secrets.ClientConfiguration,

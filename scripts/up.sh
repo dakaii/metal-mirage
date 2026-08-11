@@ -102,10 +102,11 @@ ensure_azure_metal_sim_vm_size() {
   pulumi -C "${ROOT}/${dir}" config set primary:vmSize "${size}"
 }
 
-# Refresh primary:adminCidr from the operator's current public IP so Talos
-# apid (:50000) NSG rules stay reachable when the laptop IP drifts.
-# Azure metal-sim defaults to /24 (CGNAT last-octet flaps mid-Bootstrap).
-# Override: ADMIN_CIDR=…, ADMIN_CIDR_PREFIX_LEN=32, or SKIP_ADMIN_CIDR_AUTO=1.
+# Ensure primary:adminCidr allows Talos apid (:50000) from the operator laptop.
+# Azure metal-sim lab default is 0.0.0.0/0 — residential CGNAT often jumps
+# across /24s mid-Bootstrap (e.g. 187.15.98.0/24 → 187.15.91.0/24).
+# Tighten: ADMIN_CIDR=x.x.x.x/32| /24, or ADMIN_CIDR_PREFIX_LEN=24|32.
+# Skip: SKIP_ADMIN_CIDR_AUTO=1.
 ensure_azure_metal_sim_admin_cidr() {
   local dir current now prefix
   dir="$(primary_dir)"
@@ -114,10 +115,6 @@ ensure_azure_metal_sim_admin_cidr() {
   fi
   if [[ "${SKIP_ADMIN_CIDR_AUTO:-0}" == "1" ]]; then
     echo "==> SKIP_ADMIN_CIDR_AUTO=1 — leaving primary:adminCidr unchanged"
-    return 0
-  fi
-  if ! command -v curl >/dev/null 2>&1; then
-    echo "==> curl missing — skip adminCidr refresh"
     return 0
   fi
 
@@ -133,29 +130,80 @@ ensure_azure_metal_sim_admin_cidr() {
   fi
 
   current="$(pulumi -C "${ROOT}/${dir}" config get primary:adminCidr 2>/dev/null || true)"
-  # Do not shrink an intentional wide-open lab allowlist.
-  if [[ "${current}" == "0.0.0.0/0" ]]; then
-    echo "==> primary:adminCidr is 0.0.0.0/0 — leaving open (set ADMIN_CIDR=… to lock, or SKIP_ADMIN_CIDR_AUTO=1)"
+
+  # Opt-in host/subnet lock (requires curl).
+  if [[ -n "${ADMIN_CIDR_PREFIX_LEN:-}" ]]; then
+    if ! command -v curl >/dev/null 2>&1; then
+      echo "==> curl missing — cannot honor ADMIN_CIDR_PREFIX_LEN=${ADMIN_CIDR_PREFIX_LEN}" >&2
+      return 0
+    fi
+    prefix="${ADMIN_CIDR_PREFIX_LEN}"
+    if ! now="$(detect_admin_cidr "${prefix}")"; then
+      echo "==> could not detect public IP — leave primary:adminCidr unchanged" >&2
+      return 0
+    fi
+    if [[ "${current}" == "${now}" ]]; then
+      echo "==> primary:adminCidr already ${now}"
+      return 0
+    fi
+    if [[ -n "${current}" ]]; then
+      echo "==> primary:adminCidr ${current} → ${now} (ADMIN_CIDR_PREFIX_LEN=${prefix})"
+    else
+      echo "==> primary:adminCidr → ${now}"
+    fi
+    pulumi -C "${ROOT}/${dir}" config set primary:adminCidr "${now}"
     return 0
   fi
 
-  # Lab default /24: ISP CGNAT often rotates .176/.178/.179 during a 10m dial.
-  prefix="${ADMIN_CIDR_PREFIX_LEN:-24}"
-  if ! now="$(detect_admin_cidr "${prefix}")"; then
-    echo "==> could not detect public IP — leave primary:adminCidr unchanged" >&2
-    echo "  Set ADMIN_CIDR=x.x.x.x/32 or: pulumi -C ${dir} config set primary:adminCidr …" >&2
-    return 0
-  fi
+  # Lab default: wide open (CGNAT-safe). Intentional locks via ADMIN_CIDR=… stick
+  # only when SKIP_ADMIN_CIDR_AUTO=1; otherwise we open so Bootstrap can dial.
+  now="0.0.0.0/0"
   if [[ "${current}" == "${now}" ]]; then
-    echo "==> primary:adminCidr already ${now}"
+    echo "==> primary:adminCidr already ${now} (lab default; set ADMIN_CIDR=… or ADMIN_CIDR_PREFIX_LEN=24|32 to lock)"
     return 0
   fi
   if [[ -n "${current}" ]]; then
-    echo "==> primary:adminCidr ${current} → ${now} (public IP / prefix refresh)"
+    echo "==> primary:adminCidr ${current} → ${now} (azure-metal-sim lab default; CGNAT-safe)"
   else
-    echo "==> primary:adminCidr → ${now}"
+    echo "==> primary:adminCidr → ${now} (azure-metal-sim lab default)"
   fi
   pulumi -C "${ROOT}/${dir}" config set primary:adminCidr "${now}"
+}
+
+# After adminCidr refresh: if the API PIP exists, warn when :50000 is blocked
+# so operators notice before a 10m Bootstrap dial. Never hard-fail here — NSG
+# rule updates only apply inside the upcoming `pulumi up`.
+# Skip: SKIP_TALOS_APID_PREFLIGHT=1.
+preflight_azure_metal_sim_talos_apid() {
+  local dir api admin
+  dir="$(primary_dir)"
+  if [[ "${SKIP_TALOS_APID_PREFLIGHT:-0}" == "1" ]]; then
+    return 0
+  fi
+  if [[ ! -d "${ROOT}/${dir}" ]]; then
+    return 0
+  fi
+  api="$(pulumi -C "${ROOT}/${dir}" stack output apiLoadBalancerIP 2>/dev/null || true)"
+  if [[ -z "${api}" || "${api}" == "null" ]]; then
+    return 0
+  fi
+  admin="$(pulumi -C "${ROOT}/${dir}" config get primary:adminCidr 2>/dev/null || true)"
+  echo "==> preflight Talos apid ${api}:50000 (adminCidr=${admin:-unset})"
+  if ! command -v nc >/dev/null 2>&1; then
+    echo "==> nc missing — skip apid preflight"
+    return 0
+  fi
+  if nc -z -w 5 "${api}" 50000 >/dev/null 2>&1; then
+    echo "==> ${api}:50000 reachable"
+    return 0
+  fi
+  if nc -z -w 5 "${api}" 6443 >/dev/null 2>&1; then
+    echo "warn: ${api}:6443 open but :50000 blocked — NSG/adminCidr likely stale until this up applies" >&2
+  else
+    echo "warn: ${api}:50000 unreachable (:6443 also closed — node may be down/rebooting, or NSG still stale)" >&2
+  fi
+  echo "  Lab open: adminCidr should be 0.0.0.0/0 for CGNAT; continuing into pulumi up" >&2
+  return 0
 }
 
 primary_dir() {
@@ -218,6 +266,7 @@ case "${TARGET}" in
     elif [[ "${PRIMARY_PROVISIONER}" == "azure-metal-sim" ]]; then
       ensure_azure_metal_sim_admin_cidr
       ensure_azure_metal_sim_vm_size
+      preflight_azure_metal_sim_talos_apid
     fi
     up_one "$(primary_dir)"
     ;;
@@ -243,6 +292,7 @@ case "${TARGET}" in
     elif [[ "${PRIMARY_PROVISIONER}" == "azure-metal-sim" ]]; then
       ensure_azure_metal_sim_admin_cidr
       ensure_azure_metal_sim_vm_size
+      preflight_azure_metal_sim_talos_apid
     fi
     up_one "$(primary_dir)"
     up_one "$(standby_dir)"
@@ -264,6 +314,7 @@ case "${TARGET}" in
     echo "env: PULUMI_STACK (default: dev)" >&2
     echo "      PRIMARY_VM_SIZE / FORCE_AZURE_VM_SIZE_AUTO / SKIP_AZURE_VM_SIZE_AUTO (azure-metal-sim)" >&2
     echo "      ADMIN_CIDR / ADMIN_CIDR_PREFIX_LEN / SKIP_ADMIN_CIDR_AUTO (azure-metal-sim NSG)" >&2
+    echo "      SKIP_TALOS_APID_PREFLIGHT (azure-metal-sim :50000 check)" >&2
     echo "primary dir follows config/clusters.yaml (azure-metal-sim → infra/primary, bare-metal → infra/bare-metal)" >&2
     echo "remote_access.provider=wireguard|none selects the optional RemoteAccess adapter" >&2
     exit 1

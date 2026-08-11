@@ -21,7 +21,7 @@ Short, actionable checklist for operators and contributors. Scope is **self-host
 | Bake install-disk into `GetConfiguration` `ConfigPatches` (customData == apply) | Reproducible first boot; matches bare-metal |
 | Bootstrap once on the first control-plane; kubeconfig `DependsOn` Bootstrap | Avoid racing etcd/API on first `pulumi up` |
 | Give metal-sim workers a public IP for `ConfigurationApply` | Operator laptop cannot reach private-only NICs |
-| Lock Talos APIs (`50000`/`50001`) and etcd to `primary:adminCidr` | Least privilege; HTTP/demo stay open for Traffic Manager. azure-metal-sim auto uses `/24` for CGNAT; tighten with `ADMIN_CIDR_PREFIX_LEN=32` / `ADMIN_CIDR=…` for real use |
+| Lock Talos APIs (`50000`/`50001`) and etcd to `primary:adminCidr` | Least privilege; HTTP/demo stay open for Traffic Manager. azure-metal-sim lab defaults to `0.0.0.0/0` (CGNAT); tighten with `ADMIN_CIDR=…` for real use |
 | Leave `:6443` open if using the witness Function | Function egress ≠ your adminCidr |
 | Persist witness failure counts in blob storage, not `/tmp` | Consumption Y1 has no sticky local disk |
 
@@ -77,7 +77,7 @@ Short, actionable checklist for operators and contributors. Scope is **self-host
 | Never commit kubeconfigs, talosconfigs, `.env`, `*.key`, `vpn-clients/`, `credentials-velero` | Covered by `.gitignore` |
 | Keep example placeholders obviously fake (`REPLACE_ME_…`, docs-only IPs) | Avoid gitleaks false positives on `*.example` |
 | Run `gitleaks detect --source .` before PRs that touch secrets-shaped strings | Same scan as CI; config in `.gitleaks.toml` |
-| Default `adminCidr=0.0.0.0/0` is demo-only — metal-sim auto `/24`, then `/32` for real use | SSH / Talos APIs / node_exporter; `up.sh` will not overwrite an intentional `0.0.0.0/0` |
+| Default `adminCidr=0.0.0.0/0` is the azure-metal-sim lab default — lock before real use | SSH / Talos APIs / node_exporter; CGNAT jumps `/24`s mid-Bootstrap |
 | No Stripe/billing keys in this repo | OSS boundary |
 | README cost + failover TTL honesty | Portfolio claims stay accurate |
 
