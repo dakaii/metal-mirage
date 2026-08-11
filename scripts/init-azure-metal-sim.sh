@@ -208,10 +208,17 @@ fi
 echo "==> talosImageId: ${IMAGE_ID}"
 
 if [[ -z "${ADMIN_CIDR}" ]]; then
-  echo "==> Detecting public IP for adminCidr (/24 — CGNAT-friendly; override with --admin-cidr)"
-  if ! ADMIN_CIDR="$(detect_admin_cidr "${ADMIN_CIDR_PREFIX_LEN:-24}")"; then
-    echo "  Pass --admin-cidr 'x.x.x.x/32' (or a /24) explicitly." >&2
-    exit 1
+  # Lab default wide-open — CGNAT often jumps /24s mid-Bootstrap. Tighten with
+  # --admin-cidr or ADMIN_CIDR_PREFIX_LEN=24|32.
+  if [[ -n "${ADMIN_CIDR_PREFIX_LEN:-}" ]]; then
+    echo "==> Detecting public IP for adminCidr (prefix /${ADMIN_CIDR_PREFIX_LEN})"
+    if ! ADMIN_CIDR="$(detect_admin_cidr "${ADMIN_CIDR_PREFIX_LEN}")"; then
+      echo "  Pass --admin-cidr 'x.x.x.x/32' (or a /24) explicitly." >&2
+      exit 1
+    fi
+  else
+    ADMIN_CIDR="0.0.0.0/0"
+    echo "==> adminCidr default 0.0.0.0/0 (azure-metal-sim lab; pass --admin-cidr to lock)"
   fi
 fi
 if ! [[ "${ADMIN_CIDR}" =~ ^[0-9./]+$ || "${ADMIN_CIDR}" =~ : ]]; then
