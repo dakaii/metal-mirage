@@ -2,14 +2,25 @@
 # shellcheck shell=bash
 # Source from scripts after ROOT is set.
 
-# Detect operator public IPv4 as x.x.x.x/32 (for NSG adminCidr).
-# Prints CIDR on stdout; exits 1 if undetectable.
+# Detect operator public IPv4 as a CIDR (for NSG adminCidr).
+# Optional arg: prefix length — only 24 or 32 (default 32). Use 24 for CGNAT /
+# flaky ISP egress where the last octet drifts during long Pulumi applies.
+# Prints CIDR on stdout; exits 1 if undetectable / invalid prefix.
 detect_admin_cidr() {
-  local ip="" url
+  local ip="" url prefix="${1:-32}" a b c
+  if [[ "${prefix}" != "24" && "${prefix}" != "32" ]]; then
+    echo "detect_admin_cidr: prefix length must be 24 or 32 (got '${prefix}')" >&2
+    return 1
+  fi
   for url in "https://ifconfig.me" "https://api.ipify.org" "https://icanhazip.com"; do
     ip="$(curl -fsSL --max-time 5 "${url}" 2>/dev/null | tr -d '[:space:]' || true)"
     if [[ "${ip}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      printf '%s/32\n' "${ip}"
+      if [[ "${prefix}" == "32" ]]; then
+        printf '%s/32\n' "${ip}"
+      else
+        IFS=. read -r a b c _ <<<"${ip}"
+        printf '%s.%s.%s.0/24\n' "${a}" "${b}" "${c}"
+      fi
       return 0
     fi
   done

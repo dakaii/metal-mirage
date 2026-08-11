@@ -208,9 +208,9 @@ fi
 echo "==> talosImageId: ${IMAGE_ID}"
 
 if [[ -z "${ADMIN_CIDR}" ]]; then
-  echo "==> Detecting public IP for adminCidr"
-  if ! ADMIN_CIDR="$(detect_admin_cidr)"; then
-    echo "  Pass --admin-cidr 'x.x.x.x/32' explicitly." >&2
+  echo "==> Detecting public IP for adminCidr (/24 — CGNAT-friendly; override with --admin-cidr)"
+  if ! ADMIN_CIDR="$(detect_admin_cidr "${ADMIN_CIDR_PREFIX_LEN:-24}")"; then
+    echo "  Pass --admin-cidr 'x.x.x.x/32' (or a /24) explicitly." >&2
     exit 1
   fi
 fi
