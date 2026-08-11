@@ -77,13 +77,12 @@ Secrets replace + `IgnoreChanges(customData)` leaves stale first-boot identity �
 ## 2. Primary (metal-sim)
 
 ```bash
-./scripts/up.sh primary   # if you skipped --up above
-mkdir -p .secrets
-pulumi -C infra/primary stack output kubeconfig --show-secrets > .secrets/primary.kubeconfig
+./scripts/up.sh primary   # cluster + kubeconfig export + Flux (skip Flux: SKIP_FLUX=1)
 export KUBECONFIG=$PWD/.secrets/primary.kubeconfig
 kubectl get nodes
 # After Flux reconciles the demo app:
-#   curl -fsS "http://$(pulumi -C infra/primary stack output ingressIP)/healthz"
+curl -fsS "http://$(pulumi -C infra/primary stack output ingressIP)/healthz"
+# Re-run GitOps only: ./scripts/up.sh flux          # or: ./scripts/up.sh flux standby
 ```
 
 Primary exposes the demo via an Azure Load Balancer on the `ingressIP` → NodePort `30080` (no cloud-controller / Traefik required for the portfolio path). First `up` after upgrading an existing primary stack will drop the unused NSG `:443` rule (portfolio path is HTTP `:80` only) — expected churn.
@@ -114,16 +113,24 @@ Azure metal-sim lab: copy `config/clusters.azure-metal-sim.example.yaml` over
 
 ## 3. Flux GitOps
 
+`./scripts/up.sh primary` (and `standby` / `all`) already:
+1. Writes `.secrets/<cluster>.kubeconfig`
+2. Runs `infra/flux-bootstrap` (Flux Helm controllers)
+3. Runs `scripts/install-flux.sh` (GitRepository + root Kustomization)
+
+Needs the `flux` CLI on your PATH. Override repo with `GITOPS_REPO_URL=…`;
+skip with `SKIP_FLUX=1`. Re-bootstrap without touching the cluster:
+
 ```bash
-cd infra/flux-bootstrap
-pulumi stack init dev
-pulumi config set --secret flux:kubeconfig "$(cat ../../.secrets/primary.kubeconfig)"
-pulumi config set flux:repoUrl https://github.com/dakaii/metal-mirage
-pulumi up --yes
-cd ../..
-# GitRepository + root Kustomization → gitops/clusters/primary:
-export KUBECONFIG=$PWD/.secrets/primary.kubeconfig
-GITOPS_REPO_URL=https://github.com/dakaii/metal-mirage ./scripts/install-flux.sh primary
+./scripts/up.sh flux              # primary
+./scripts/up.sh flux standby      # separate Pulumi stack: ${PULUMI_STACK}-standby
+```
+
+Manual equivalent (if you prefer):
+
+```bash
+# kubeconfig + Helm controllers + install-flux.sh — same as ensure_flux in up.sh
+./scripts/up.sh flux primary
 ```
 
 ## 4. Standby AKS + shared failover

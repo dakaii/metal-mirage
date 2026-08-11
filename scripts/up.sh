@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Bring up a stack: primary | standby | shared | vpn | all
+# Bring up a stack: primary | standby | shared | vpn | flux | all
 # primary/standby dirs come from config/clusters.yaml (provisioner switch).
+# primary/standby also export kubeconfig and install Flux (unless SKIP_FLUX=1).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib.sh
 source "${ROOT}/scripts/lib.sh"
 TARGET="${1:-primary}"
 STACK="${PULUMI_STACK:-dev}"
+FLUX_CLUSTER="${2:-}"
 
 # RemoteAccess disabled: allow a no-op without Pulumi installed.
 if [[ "${TARGET}" == "vpn" || "${TARGET}" == "remote_access" ]]; then
@@ -256,6 +258,121 @@ vpn_dir() {
   resolve_pulumi_dir vpn
 }
 
+# HTTPS URL for Flux GitRepository (anonymous fetch).
+gitops_repo_url() {
+  local url
+  url="${GITOPS_REPO_URL:-$(git -C "${ROOT}" remote get-url origin 2>/dev/null || true)}"
+  if [[ -z "${url}" ]]; then
+    url="https://github.com/dakaii/metal-mirage"
+  fi
+  if [[ "${url}" == git@github.com:* ]]; then
+    url="https://github.com/${url#git@github.com:}"
+    url="${url%.git}"
+  fi
+  printf '%s\n' "${url}"
+}
+
+# Export stack kubeconfig → .secrets/<cluster>.kubeconfig. Returns 1 if empty/invalid
+# (e.g. bare-metal dryRun).
+export_cluster_kubeconfig() {
+  local cluster="$1" dir out kc
+  case "${cluster}" in
+    primary) dir="$(primary_dir)" ;;
+    standby) dir="$(standby_dir)" ;;
+    *)
+      echo "export_cluster_kubeconfig: cluster must be primary|standby" >&2
+      return 1
+      ;;
+  esac
+  if [[ -z "${dir}" || ! -d "${ROOT}/${dir}" ]]; then
+    echo "warn: ${cluster} pulumi dir missing — skip kubeconfig export" >&2
+    return 1
+  fi
+  mkdir -p "${ROOT}/.secrets"
+  out="${ROOT}/.secrets/${cluster}.kubeconfig"
+  if ! kc="$(pulumi -C "${ROOT}/${dir}" stack output kubeconfig --show-secrets 2>/dev/null)"; then
+    echo "warn: could not read ${dir} kubeconfig (stack=${STACK}) — skip Flux" >&2
+    return 1
+  fi
+  if [[ -z "${kc}" || "${kc}" == "null" ]]; then
+    echo "==> ${cluster} kubeconfig empty (bare-metal dryRun?) — skip Flux"
+    return 1
+  fi
+  printf '%s\n' "${kc}" >"${out}"
+  chmod 600 "${out}" 2>/dev/null || true
+  if ! grep -qE 'apiVersion:|clusters:' "${out}"; then
+    echo "==> ${cluster} kubeconfig does not look like YAML — skip Flux" >&2
+    return 1
+  fi
+  echo "==> wrote ${out}"
+  return 0
+}
+
+# Pulumi stack name for infra/flux-bootstrap (primary keeps STACK for back-compat).
+flux_stack_name() {
+  local cluster="$1"
+  if [[ "${cluster}" == "primary" ]]; then
+    printf '%s\n' "${STACK}"
+  else
+    printf '%s-%s\n' "${STACK}" "${cluster}"
+  fi
+}
+
+# Install Flux controllers (Helm via infra/flux-bootstrap) + GitRepository/Kustomization.
+# Skip: SKIP_FLUX=1. Needs flux CLI for install-flux.sh.
+ensure_flux() {
+  local cluster="${1:-primary}" repo path fstack
+  if [[ "${SKIP_FLUX:-0}" == "1" ]]; then
+    echo "==> SKIP_FLUX=1 — leaving Flux alone"
+    return 0
+  fi
+  case "${cluster}" in
+    primary|standby) ;;
+    *)
+      echo "ensure_flux: cluster must be primary|standby (got ${cluster})" >&2
+      return 1
+      ;;
+  esac
+  if ! export_cluster_kubeconfig "${cluster}"; then
+    return 0
+  fi
+  if ! command -v flux >/dev/null 2>&1; then
+    echo "error: flux CLI required for GitOps bootstrap" >&2
+    echo "  Install: https://fluxcd.io/flux/installation/" >&2
+    echo "  Or skip: SKIP_FLUX=1 ./scripts/up.sh …" >&2
+    exit 1
+  fi
+  if ! command -v kubectl >/dev/null 2>&1; then
+    echo "error: kubectl required for Flux bootstrap" >&2
+    exit 1
+  fi
+
+  repo="$(gitops_repo_url)"
+  path="./gitops/clusters/${cluster}"
+  fstack="$(flux_stack_name "${cluster}")"
+  echo "==> Flux bootstrap for ${cluster} (stack=${fstack}, repo=${repo}, path=${path})"
+
+  (
+    cd "${ROOT}/infra/flux-bootstrap"
+    pulumi stack select "${fstack}" 2>/dev/null || pulumi stack init "${fstack}"
+    pulumi config set --secret flux:kubeconfig "$(cat "${ROOT}/.secrets/${cluster}.kubeconfig")"
+    pulumi config set flux:repoUrl "${repo}"
+    pulumi config set flux:branch "${GITOPS_BRANCH:-main}"
+    pulumi config set flux:clusterPath "${path}"
+    pulumi up --yes
+  )
+
+  export KUBECONFIG="${ROOT}/.secrets/${cluster}.kubeconfig"
+  GITOPS_REPO_URL="${repo}" GITOPS_BRANCH="${GITOPS_BRANCH:-main}" \
+    FLUX_INSTALL_CONTROLLERS="${FLUX_INSTALL_CONTROLLERS:-auto}" \
+    "${ROOT}/scripts/install-flux.sh" "${cluster}"
+
+  echo "==> Flux ready on ${cluster}. Demo: kubectl -n demo get deploy,svc,pods"
+  if [[ "${cluster}" == "primary" ]]; then
+    echo "  After reconcile: curl -fsS \"http://\$(pulumi -C $(primary_dir) stack output ingressIP)/healthz\""
+  fi
+}
+
 PRIMARY_PROVISIONER="$(yaml_section_key primary provisioner | tr -d '[:space:]')"
 
 case "${TARGET}" in
@@ -269,9 +386,11 @@ case "${TARGET}" in
       preflight_azure_metal_sim_talos_apid
     fi
     up_one "$(primary_dir)"
+    ensure_flux primary
     ;;
   standby)
     up_one "$(standby_dir)"
+    ensure_flux standby
     ;;
   shared)
     wire_shared_from_outputs
@@ -286,6 +405,18 @@ case "${TARGET}" in
     fi
     up_one "${dir}"
     ;;
+  flux)
+    # Re-run Flux only (cluster already up). Usage: ./scripts/up.sh flux [primary|standby]
+    cluster="${FLUX_CLUSTER:-primary}"
+    case "${cluster}" in
+      primary|standby) ;;
+      *)
+        echo "usage: $0 flux [primary|standby]" >&2
+        exit 1
+        ;;
+    esac
+    ensure_flux "${cluster}"
+    ;;
   all)
     if [[ "${PRIMARY_PROVISIONER}" == "bare-metal" ]]; then
       "${ROOT}/scripts/sync-baremetal-config.sh"
@@ -295,7 +426,9 @@ case "${TARGET}" in
       preflight_azure_metal_sim_talos_apid
     fi
     up_one "$(primary_dir)"
+    ensure_flux primary
     up_one "$(standby_dir)"
+    ensure_flux standby
     wire_shared_from_outputs
     up_one infra/shared
     if [[ "$(remote_access_provider)" == "none" ]]; then
@@ -310,15 +443,17 @@ case "${TARGET}" in
     fi
     ;;
   *)
-    echo "usage: $0 primary|standby|shared|vpn|remote_access|all" >&2
+    echo "usage: $0 primary|standby|shared|vpn|remote_access|flux|all" >&2
+    echo "       $0 flux [primary|standby]" >&2
     echo "env: PULUMI_STACK (default: dev)" >&2
     echo "      PRIMARY_VM_SIZE / FORCE_AZURE_VM_SIZE_AUTO / SKIP_AZURE_VM_SIZE_AUTO (azure-metal-sim)" >&2
     echo "      ADMIN_CIDR / ADMIN_CIDR_PREFIX_LEN / SKIP_ADMIN_CIDR_AUTO (azure-metal-sim NSG)" >&2
     echo "      SKIP_TALOS_APID_PREFLIGHT (azure-metal-sim :50000 check)" >&2
+    echo "      SKIP_FLUX / GITOPS_REPO_URL / GITOPS_BRANCH (Flux after primary/standby)" >&2
     echo "primary dir follows config/clusters.yaml (azure-metal-sim → infra/primary, bare-metal → infra/bare-metal)" >&2
     echo "remote_access.provider=wireguard|none selects the optional RemoteAccess adapter" >&2
     exit 1
     ;;
 esac
 
-echo "Done (${TARGET}). See docs/DEPLOY.md for Flux / witness / VPN next steps."
+echo "Done (${TARGET}). See docs/DEPLOY.md for witness / VPN next steps."

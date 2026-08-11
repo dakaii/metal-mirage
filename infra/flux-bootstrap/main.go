@@ -63,7 +63,7 @@ func main() {
 		ctx.Export("repoUrl", pulumi.String(repoURL))
 		ctx.Export("branch", pulumi.String(branch))
 		ctx.Export("clusterPath", pulumi.String(clusterPath))
-		ctx.Export("nextStep", pulumi.String("Run scripts/install-flux.sh to create GitRepository + root Kustomization, or apply gitops/clusters/<name> manually"))
+		ctx.Export("nextStep", pulumi.String("up.sh runs scripts/install-flux.sh next (GitRepository + root Kustomization); or: ./scripts/up.sh flux"))
 
 		return nil
 	})

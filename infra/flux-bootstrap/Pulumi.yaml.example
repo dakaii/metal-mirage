@@ -2,10 +2,11 @@
 name: metal-mirage-flux
 runtime: go
 description: Flux controllers via Helm (flux2 chart)
-# Required (secret):
+# Prefer: ./scripts/up.sh primary   (wires kubeconfig + install-flux.sh)
+# Or:     ./scripts/up.sh flux [primary|standby]
+# Manual:
 #   pulumi config set --secret flux:kubeconfig "$(cat ../../.secrets/primary.kubeconfig)"
-# Optional:
 #   pulumi config set flux:repoUrl https://github.com/dakaii/metal-mirage
 #   pulumi config set flux:branch main
 #   pulumi config set flux:clusterPath ./gitops/clusters/primary
-# Then: GITOPS_REPO_URL=... ./scripts/install-flux.sh primary
+#   pulumi up --yes && ./scripts/install-flux.sh primary
