@@ -263,11 +263,13 @@ func main() {
 				return err
 			}
 
+			// DependsOn NSG so adminCidr rule updates finish before we dial :50000
+			// (Apply/Bootstrap do not otherwise wait on in-place NSG updates).
 			apply, err := machine.NewConfigurationApply(ctx, name+"-cfg", &machine.ConfigurationApplyArgs{
 				ClientConfiguration:       secrets.ClientConfiguration,
 				MachineConfigurationInput: cpCfg.MachineConfiguration(),
 				Node:                      nodeAddr,
-			}, pulumi.DependsOn([]pulumi.Resource{vm}))
+			}, pulumi.DependsOn([]pulumi.Resource{vm, nsg}))
 			if err != nil {
 				return err
 			}
@@ -278,6 +280,7 @@ func main() {
 			}
 		}
 
+		bootstrapDeps = append(bootstrapDeps, nsg)
 		bootstrap, err := machine.NewBootstrap(ctx, "bootstrap", &machine.BootstrapArgs{
 			Node:                firstNode,
 			ClientConfiguration: secrets.ClientConfiguration,
@@ -347,7 +350,7 @@ func main() {
 				ClientConfiguration:       secrets.ClientConfiguration,
 				MachineConfigurationInput: wCfg.MachineConfiguration(),
 				Node:                      nodeAddr,
-			}, pulumi.DependsOn([]pulumi.Resource{vm, bootstrap}))
+			}, pulumi.DependsOn([]pulumi.Resource{vm, bootstrap, nsg}))
 			if err != nil {
 				return err
 			}

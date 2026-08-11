@@ -104,9 +104,10 @@ ensure_azure_metal_sim_vm_size() {
 
 # Refresh primary:adminCidr from the operator's current public IP so Talos
 # apid (:50000) NSG rules stay reachable when the laptop IP drifts.
-# Skip: SKIP_ADMIN_CIDR_AUTO=1, or ADMIN_CIDR=x.x.x.x/32 to force a value.
+# Azure metal-sim defaults to /24 (CGNAT last-octet flaps mid-Bootstrap).
+# Override: ADMIN_CIDR=…, ADMIN_CIDR_PREFIX_LEN=32, or SKIP_ADMIN_CIDR_AUTO=1.
 ensure_azure_metal_sim_admin_cidr() {
-  local dir current now
+  local dir current now prefix
   dir="$(primary_dir)"
   if [[ ! -d "${ROOT}/${dir}" ]]; then
     return 0
@@ -131,7 +132,9 @@ ensure_azure_metal_sim_admin_cidr() {
     return 0
   fi
 
-  if ! now="$(detect_admin_cidr)"; then
+  # Lab default /24: ISP CGNAT often rotates .176/.178/.179 during a 10m dial.
+  prefix="${ADMIN_CIDR_PREFIX_LEN:-24}"
+  if ! now="$(detect_admin_cidr "${prefix}")"; then
     echo "==> could not detect public IP — leave primary:adminCidr unchanged" >&2
     echo "  Set ADMIN_CIDR=x.x.x.x/32 or: pulumi -C ${dir} config set primary:adminCidr …" >&2
     return 0
@@ -142,7 +145,7 @@ ensure_azure_metal_sim_admin_cidr() {
     return 0
   fi
   if [[ -n "${current}" ]]; then
-    echo "==> primary:adminCidr ${current} → ${now} (public IP changed)"
+    echo "==> primary:adminCidr ${current} → ${now} (public IP / prefix refresh)"
   else
     echo "==> primary:adminCidr → ${now}"
   fi
