@@ -126,12 +126,9 @@ skip with `SKIP_FLUX=1`. Re-bootstrap without touching the cluster:
 ./scripts/up.sh flux standby      # separate Pulumi stack: ${PULUMI_STACK}-standby
 ```
 
-Manual equivalent (if you prefer):
-
-```bash
-# kubeconfig + Helm controllers + install-flux.sh — same as ensure_flux in up.sh
-./scripts/up.sh flux primary
-```
+Requires the `flux` CLI (`brew install fluxcd/tap/flux`). Controllers still
+come from the Helm chart in `infra/flux-bootstrap`; `install-flux.sh` only
+adds the GitRepository + root Kustomization.
 
 ## 4. Standby AKS + shared failover
 
