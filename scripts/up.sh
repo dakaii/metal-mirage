@@ -132,6 +132,13 @@ ensure_azure_metal_sim_admin_cidr() {
     return 0
   fi
 
+  current="$(pulumi -C "${ROOT}/${dir}" config get primary:adminCidr 2>/dev/null || true)"
+  # Do not shrink an intentional wide-open lab allowlist.
+  if [[ "${current}" == "0.0.0.0/0" ]]; then
+    echo "==> primary:adminCidr is 0.0.0.0/0 — leaving open (set ADMIN_CIDR=… to lock, or SKIP_ADMIN_CIDR_AUTO=1)"
+    return 0
+  fi
+
   # Lab default /24: ISP CGNAT often rotates .176/.178/.179 during a 10m dial.
   prefix="${ADMIN_CIDR_PREFIX_LEN:-24}"
   if ! now="$(detect_admin_cidr "${prefix}")"; then
@@ -139,7 +146,6 @@ ensure_azure_metal_sim_admin_cidr() {
     echo "  Set ADMIN_CIDR=x.x.x.x/32 or: pulumi -C ${dir} config set primary:adminCidr …" >&2
     return 0
   fi
-  current="$(pulumi -C "${ROOT}/${dir}" config get primary:adminCidr 2>/dev/null || true)"
   if [[ "${current}" == "${now}" ]]; then
     echo "==> primary:adminCidr already ${now}"
     return 0
@@ -257,7 +263,7 @@ case "${TARGET}" in
     echo "usage: $0 primary|standby|shared|vpn|remote_access|all" >&2
     echo "env: PULUMI_STACK (default: dev)" >&2
     echo "      PRIMARY_VM_SIZE / FORCE_AZURE_VM_SIZE_AUTO / SKIP_AZURE_VM_SIZE_AUTO (azure-metal-sim)" >&2
-    echo "      ADMIN_CIDR / SKIP_ADMIN_CIDR_AUTO (azure-metal-sim NSG refresh)" >&2
+    echo "      ADMIN_CIDR / ADMIN_CIDR_PREFIX_LEN / SKIP_ADMIN_CIDR_AUTO (azure-metal-sim NSG)" >&2
     echo "primary dir follows config/clusters.yaml (azure-metal-sim → infra/primary, bare-metal → infra/bare-metal)" >&2
     echo "remote_access.provider=wireguard|none selects the optional RemoteAccess adapter" >&2
     exit 1

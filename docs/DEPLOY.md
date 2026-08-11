@@ -66,9 +66,10 @@ drift). To rewrite first-boot customData, replace the VMs explicitly.
 (not `/32`) because CGNAT often flips the last octet mid-Bootstrap while
 `ConfigurationApply` already succeeded. Force a host lock with
 `ADMIN_CIDR_PREFIX_LEN=32`, set any CIDR via `ADMIN_CIDR=…` (lab unblock:
-`ADMIN_CIDR=0.0.0.0/0`), or skip via `SKIP_ADMIN_CIDR_AUTO=1`.
-Quick probe: `nc -vz <apiLoadBalancerIP> 6443` (open to `*`) vs `:50000`
-(`adminCidr` only) — if 6443 works and 50000 hangs, widen/refresh the CIDR.
+`ADMIN_CIDR=0.0.0.0/0` — once set, auto-refresh leaves it alone), or skip via
+`SKIP_ADMIN_CIDR_AUTO=1`. Quick probe: `nc -vz <apiLoadBalancerIP> 6443`
+(open to `*`) vs `:50000` (`adminCidr` only) — if 6443 works and 50000 hangs,
+widen/refresh the CIDR.
 
 ## 2. Primary (metal-sim)
 

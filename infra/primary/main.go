@@ -280,7 +280,7 @@ func main() {
 			}
 		}
 
-		bootstrapDeps = append(bootstrapDeps, nsg)
+		// NSG is already a DependsOn of each cp ConfigurationApply above.
 		bootstrap, err := machine.NewBootstrap(ctx, "bootstrap", &machine.BootstrapArgs{
 			Node:                firstNode,
 			ClientConfiguration: secrets.ClientConfiguration,
