@@ -104,6 +104,50 @@ ensure_azure_metal_sim_vm_size() {
   pulumi -C "${ROOT}/${dir}" config set primary:vmSize "${size}"
 }
 
+# Avoid AKS default Standard_B2s when the subscription blocks it (common on new
+# subs in eastus). Override: STANDBY_VM_SIZE=… or SKIP_STANDBY_VM_SIZE_AUTO=1.
+ensure_standby_vm_size() {
+  local dir current
+  dir="$(standby_dir)"
+  if [[ ! -d "${ROOT}/${dir}" ]]; then
+    return 0
+  fi
+  if [[ "${SKIP_STANDBY_VM_SIZE_AUTO:-0}" == "1" ]]; then
+    echo "==> SKIP_STANDBY_VM_SIZE_AUTO=1 — leaving standby:vmSize unchanged"
+    return 0
+  fi
+
+  (
+    cd "${ROOT}/${dir}"
+    pulumi stack select "${STACK}" 2>/dev/null || pulumi stack init "${STACK}"
+  )
+
+  if [[ -n "${STANDBY_VM_SIZE:-}" ]]; then
+    echo "==> STANDBY_VM_SIZE=${STANDBY_VM_SIZE} — setting standby:vmSize"
+    pulumi -C "${ROOT}/${dir}" config set standby:vmSize "${STANDBY_VM_SIZE}"
+    return 0
+  fi
+
+  current="$(pulumi -C "${ROOT}/${dir}" config get standby:vmSize 2>/dev/null || true)"
+  if [[ -n "${current}" && "${current}" != "Standard_B2s" ]]; then
+    echo "==> keeping standby:vmSize=${current}"
+    return 0
+  fi
+
+  # Prefer the size primary already settled on when present.
+  local primary_size
+  primary_size="$(pulumi -C "${ROOT}/$(primary_dir)" config get primary:vmSize 2>/dev/null || true)"
+  if [[ -z "${primary_size}" || "${primary_size}" == "Standard_B2s" ]]; then
+    primary_size="Standard_D2s_v4"
+  fi
+  if [[ -n "${current}" ]]; then
+    echo "==> standby:vmSize ${current} → ${primary_size} (AKS often blocks Standard_B2s)"
+  else
+    echo "==> standby:vmSize → ${primary_size}"
+  fi
+  pulumi -C "${ROOT}/${dir}" config set standby:vmSize "${primary_size}"
+}
+
 # Ensure primary:adminCidr allows Talos apid (:50000) from the operator laptop.
 # Azure metal-sim lab default is 0.0.0.0/0 — residential CGNAT often jumps
 # across /24s mid-Bootstrap (e.g. 187.15.98.0/24 → 187.15.91.0/24).
@@ -389,6 +433,7 @@ case "${TARGET}" in
     ensure_flux primary
     ;;
   standby)
+    ensure_standby_vm_size
     up_one "$(standby_dir)"
     ensure_flux standby
     ;;
@@ -427,6 +472,7 @@ case "${TARGET}" in
     fi
     up_one "$(primary_dir)"
     ensure_flux primary
+    ensure_standby_vm_size
     up_one "$(standby_dir)"
     ensure_flux standby
     wire_shared_from_outputs
@@ -450,6 +496,7 @@ case "${TARGET}" in
     echo "      ADMIN_CIDR / ADMIN_CIDR_PREFIX_LEN / SKIP_ADMIN_CIDR_AUTO (azure-metal-sim NSG)" >&2
     echo "      SKIP_TALOS_APID_PREFLIGHT (azure-metal-sim :50000 check)" >&2
     echo "      SKIP_FLUX / GITOPS_REPO_URL / GITOPS_BRANCH (Flux after primary/standby)" >&2
+    echo "      STANDBY_VM_SIZE / SKIP_STANDBY_VM_SIZE_AUTO (AKS node SKU)" >&2
     echo "primary dir follows config/clusters.yaml (azure-metal-sim → infra/primary, bare-metal → infra/bare-metal)" >&2
     echo "remote_access.provider=wireguard|none selects the optional RemoteAccess adapter" >&2
     exit 1

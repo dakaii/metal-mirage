@@ -73,7 +73,7 @@ Dump configs for USB/`talosctl`: `./scripts/export-baremetal-machine-configs.sh`
 |-----|----------|---------|
 | `standby:location` | no | `eastus` |
 | `standby:nodeCount` | no | `1` |
-| `standby:vmSize` | no | `Standard_B2s` |
+| `standby:vmSize` | no | `Standard_D2s_v4` | `Standard_B2s` is often blocked on new subs; override `STANDBY_VM_SIZE` / `standby:vmSize` |
 | `standby:kubernetesVersion` | no | (AKS default) |
 
 Prefer `./scripts/up.sh standby` with defaults; only set keys to override:
