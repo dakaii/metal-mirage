@@ -32,16 +32,22 @@ func main() {
 		}
 
 		// Stable Azure names so ./scripts/failover-promote.sh can toggle endpoints without guessing.
+		// ProfileName/EndpointName are the URL path IDs — they must match Name or Azure returns
+		// MismatchingResourceName (Pulumi logical name alone becomes app-failover<hash>).
+		// RelativeName (DNS label) must be globally unique on *.trafficmanager.net.
 		const tmProfileName = "metal-mirage-app"
 		const tmPrimaryEndpoint = "primary"
 		const tmStandbyEndpoint = "standby"
 
 		profile, err := network.NewProfile(ctx, "app-failover", &network.ProfileArgs{
 			Name:                        pulumi.String(tmProfileName),
+			ProfileName:                 pulumi.String(tmProfileName),
 			ResourceGroupName:           rg.Name,
+			Location:                    pulumi.String("global"),
 			TrafficRoutingMethod:        network.TrafficRoutingMethodPriority,
 			TrafficViewEnrollmentStatus: network.TrafficViewEnrollmentStatusDisabled,
 			DnsConfig: &network.DnsConfigArgs{
+				// Globally unique DNS label → metal-mirage-app.trafficmanager.net
 				RelativeName: pulumi.String(tmProfileName),
 				Ttl:          pulumi.Float64(30),
 			},
@@ -61,13 +67,14 @@ func main() {
 
 		_, err = network.NewEndpoint(ctx, "primary-endpoint", &network.EndpointArgs{
 			Name:              pulumi.String(tmPrimaryEndpoint),
+			EndpointName:      pulumi.String(tmPrimaryEndpoint),
 			ResourceGroupName: rg.Name,
-			ProfileName:       profile.Name.Elem(),
+			ProfileName:       pulumi.String(tmProfileName),
 			EndpointType:      pulumi.String("ExternalEndpoints"),
 			EndpointStatus:    network.EndpointStatusEnabled,
 			Priority:          pulumi.Float64(1),
 			Target:            pulumi.String(primaryIP),
-		})
+		}, pulumi.DependsOn([]pulumi.Resource{profile}))
 		if err != nil {
 			return err
 		}
@@ -75,13 +82,14 @@ func main() {
 		if standbyFQDN != "" {
 			_, err = network.NewEndpoint(ctx, "standby-endpoint", &network.EndpointArgs{
 				Name:              pulumi.String(tmStandbyEndpoint),
+				EndpointName:      pulumi.String(tmStandbyEndpoint),
 				ResourceGroupName: rg.Name,
-				ProfileName:       profile.Name.Elem(),
+				ProfileName:       pulumi.String(tmProfileName),
 				EndpointType:      pulumi.String("ExternalEndpoints"),
 				EndpointStatus:    network.EndpointStatusEnabled,
 				Priority:          pulumi.Float64(2),
 				Target:            pulumi.String(standbyFQDN),
-			})
+			}, pulumi.DependsOn([]pulumi.Resource{profile}))
 			if err != nil {
 				return err
 			}
@@ -116,6 +124,14 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 	failoverHMAC := strings.TrimSpace(cfgGet(cfg, "failoverWebhookHMACSecret", ""))
 	failoverGitHubRepo := strings.TrimSpace(cfgGet(cfg, "failoverGitHubRepo", ""))
 	failoverGitHubToken := strings.TrimSpace(cfgGet(cfg, "failoverGitHubToken", ""))
+	// Optional: put the Function in another region when Microsoft.Web "Total VMs" quota
+	// is 0 in shared:location (common on new subs for Y1/Dynamic in eastus).
+	// Changing this replaces storage account + plan + Function in preview (same Pulumi
+	// logical names, new Azure region) — expected; re-run deploy-witness.sh afterward.
+	witnessLoc := cfgGet(cfg, "witnessLocation", "")
+	if witnessLoc == "" {
+		witnessLoc = cfgGet(cfg, "location", "eastus")
+	}
 	if (failoverGitHubRepo == "") != (failoverGitHubToken == "") {
 		return fmt.Errorf("shared:failoverGitHubRepo and shared:failoverGitHubToken must both be set (or both empty); see docs/AUTO-FAILOVER.md")
 	}
@@ -131,7 +147,7 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 
 	sa, err := storage.NewStorageAccount(ctx, "witnesssa", &storage.StorageAccountArgs{
 		ResourceGroupName:      rg.Name,
-		Location:               rg.Location,
+		Location:               pulumi.String(witnessLoc),
 		Sku:                    &storage.SkuArgs{Name: storage.SkuName_Standard_LRS},
 		Kind:                   storage.KindStorageV2,
 		AllowBlobPublicAccess:  pulumi.Bool(false),
@@ -155,12 +171,13 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 
 	plan, err := web.NewAppServicePlan(ctx, "witness-plan", &web.AppServicePlanArgs{
 		ResourceGroupName: rg.Name,
-		Location:          rg.Location,
+		Location:          pulumi.String(witnessLoc),
 		Kind:              pulumi.String("FunctionApp"),
 		Sku: &web.SkuDescriptionArgs{
 			Name: pulumi.String("Y1"),
 			Tier: pulumi.String("Dynamic"),
 		},
+		// Linux plan required for Python worker.
 		Reserved: pulumi.Bool(true),
 	})
 	if err != nil {
@@ -183,7 +200,7 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 
 	app, err := web.NewWebApp(ctx, "witness-fn", &web.WebAppArgs{
 		ResourceGroupName: rg.Name,
-		Location:          rg.Location,
+		Location:          pulumi.String(witnessLoc),
 		Kind:              pulumi.String("FunctionApp"),
 		ServerFarmId:      plan.ID(),
 		Reserved:          pulumi.Bool(true),
@@ -208,6 +225,7 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 	ctx.Export("witnessFunctionName", app.Name)
 	ctx.Export("witnessDefaultHost", app.DefaultHostName)
 	ctx.Export("witnessStateContainer", pulumi.String(stateContainer))
+	ctx.Export("witnessLocation", pulumi.String(witnessLoc))
 	ctx.Export("primaryAPIURL", pulumi.String(primaryAPI))
 	ctx.Export("failoverWebhookConfigured", pulumi.Bool(failoverWebhook != ""))
 	ctx.Export("failoverGitHubDispatchConfigured", pulumi.Bool(failoverGitHubRepo != "" && failoverGitHubToken != ""))

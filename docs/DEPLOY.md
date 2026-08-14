@@ -134,13 +134,35 @@ adds the GitRepository + root Kustomization.
 
 ```bash
 ./scripts/up.sh standby   # probes AKS-capable vmSize; SKIP_FLUX=1 if you only want AKS
-./scripts/up.sh shared    # up.sh all wires outputs automatically
+./scripts/up.sh shared    # Traffic Manager + optional witness; wires outputs automatically
 ./scripts/deploy-witness.sh
 ```
 
 A failed mid-`up` (bad SKU / role GUID) leaves a partial resource group — just
 re-run `./scripts/up.sh standby` after fixing config; no destroy needed unless
 Pulumi state is wedged. Override node SKU with `STANDBY_VM_SIZE=…`.
+
+**Shared / witness troubleshooting**
+
+- `MismatchingResourceName` on Traffic Manager — fixed when `ProfileName`/`EndpointName`
+  match the stable Azure names (`metal-mirage-app` / `primary` / `standby`). A failed
+  create usually left **no** profile (API rejected the body); plain re-run
+  `./scripts/up.sh shared` is enough. If Portal shows a stray `metal-mirage-app`
+  profile in the shared RG, delete it once, then re-`up`.
+- `RelativeName` / DNS label `metal-mirage-app` must be **globally unique** on
+  `*.trafficmanager.net`. If Azure reports a DNS/name collision, pick another
+  relative name (code constant `tmProfileName` in `infra/shared/main.go`) or reclaim
+  the label in the other subscription that holds it.
+- Witness `Unauthorized` / **Total VMs: 0** — Microsoft.Web regional quota (not Compute
+  vCPU). Options:
+  1. Portal → Subscription → Usage + quotas → Provider **Microsoft.Web** → request
+     Total VMs ≥ 1 in the region, or
+  2. `pulumi -C infra/shared config set shared:witnessLocation westus2` (try another
+     region), then `./scripts/up.sh shared`. Preview will **replace** an existing
+     eastus `witnesssa` / plan / Function (same Pulumi resources, new region) —
+     expected; then re-run `./scripts/deploy-witness.sh`, or
+  3. TM-only: `pulumi -C infra/shared config set shared:enableWitness false` then
+     `./scripts/up.sh shared` (skip Function; skip `deploy-witness.sh`).
 
 After any later `./scripts/up.sh shared` (or `pulumi up` in `infra/shared`), re-run `./scripts/deploy-witness.sh` so the Function zip picks up dependency/code changes (for example `azure-storage-blob` and the durable failure counter). Pulumi alone does not redeploy the zip.
 

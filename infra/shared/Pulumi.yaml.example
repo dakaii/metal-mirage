@@ -9,6 +9,7 @@ description: Traffic Manager failover + optional witness Function
 # Optional:
 #   pulumi config set shared:standbyFQDN '<aks fqdn>'
 #   pulumi config set shared:enableWitness false
+#   pulumi config set shared:witnessLocation westus2   # if Y1 quota is 0 in eastus (replaces existing witness SA/plan/app)
 #   pulumi config set --secret shared:failoverWebhookURL 'https://…'  # optional notify
 #   pulumi config set --secret shared:failoverWebhookHMACSecret '…'   # optional X-Metal-Mirage-Signature
 #   pulumi config set shared:failoverGitHubRepo 'OWNER/metal-mirage'   # optional repository_dispatch
