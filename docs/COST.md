@@ -10,7 +10,7 @@ Idle resources bill. Prefer destroy between demos.
 | AKS demo Service `LoadBalancer` (standby Flux patch) | Standard LB + public IP for TM priority-2; small ongoing cost even while demo replicas=0 |
 | Traffic Manager | Cheap; keep if you have a domain story |
 | Function Consumption (Y1) | Near-zero idle |
-| VPN `Standard_B1s` | Small; destroy independently |
+| VPN (default `Standard_B1s`; often probed up to `Standard_D2s_v4`) | B-series frequently capacity-blocked in eastus — expect D-family after `./scripts/pick-azure-vm-size.sh`. Destroy independently: `./scripts/destroy.sh vpn` |
 | Managed disks / Public IPs | Leftover after failed destroys — check RG |
 
 ```bash

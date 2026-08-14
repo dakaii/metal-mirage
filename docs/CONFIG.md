@@ -145,12 +145,15 @@ WireGuard **RemoteAccess** example adapter (only when `remote_access.provider=wi
 | `vpn:sshPublicKey` | yes | — |
 | `vpn:location` | no | `eastus` |
 | `vpn:city` | no | `us` |
-| `vpn:vmSize` | no | `Standard_B1s` |
+| `vpn:vmSize` | no | `Standard_B1s` | Cheap default; often **SkuNotAvailable** in eastus — run `./scripts/pick-azure-vm-size.sh <location> 1` and set the result (commonly `Standard_D2s_v4`) |
 | `vpn:adminCidr` | no | `0.0.0.0/0` | SSH + node_exporter only; WireGuard UDP stays `*` |
 
 ```bash
+pulumi stack select dev 2>/dev/null || pulumi stack init dev
 pulumi config set vpn:sshPublicKey "$(cat ~/.ssh/id_ed25519.pub)"
 pulumi config set vpn:adminCidr "$(curl -fsSL ifconfig.me)/32"
+./scripts/pick-azure-vm-size.sh eastus 1
+pulumi config set vpn:vmSize Standard_D2s_v4   # use probe output
 ```
 
 Peer configs are written under `vpn-clients/` (gitignored).
