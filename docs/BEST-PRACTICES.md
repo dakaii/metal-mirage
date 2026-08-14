@@ -34,7 +34,7 @@ Short, actionable checklist for operators and contributors. Scope is **self-host
 | Do not point Traffic Manager at the Talos API PIP | API is not the app health surface |
 | Treat primary `AdminPassword` as Azure API filler | Talos never uses it; keep the constant for idempotent VM updates |
 | VPN: UDP `51820` from `*`; SSH/`9100` from `vpn:adminCidr` | Peers are remote; management plane is not |
-| AKS: workload identity + OIDC enabled; Velero identity has **Storage Blob Data Contributor** (`ba92a5b7-b7df-409c-b29b-3a3a5c1f4c5e`) | Correct built-in role GUID for blob backup |
+| AKS: workload identity + OIDC enabled; Velero identity has **Storage Blob Data Contributor** (`ba92f5b4-2d11-453d-a403-e96b0029c9fe`) | Correct built-in role GUID for blob backup |
 | Destroy stacks in dependency order (vpn → shared → flux → standby → primary) | Avoid dangling endpoints / failed destroys |
 
 ## WireGuard

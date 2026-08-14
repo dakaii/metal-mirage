@@ -73,10 +73,12 @@ Dump configs for USB/`talosctl`: `./scripts/export-baremetal-machine-configs.sh`
 |-----|----------|---------|
 | `standby:location` | no | `eastus` |
 | `standby:nodeCount` | no | `1` |
-| `standby:vmSize` | no | `Standard_B2s` |
+| `standby:vmSize` | no | `Standard_D2s_v4` | `up.sh` probes Compute quota + AKS agent-pool allowlist (skips blocked `Standard_B2s`); override `STANDBY_VM_SIZE` / `FORCE_STANDBY_VM_SIZE_AUTO=1` |
 | `standby:kubernetesVersion` | no | (AKS default) |
 
-Prefer `./scripts/up.sh standby` with defaults; only set keys to override:
+Prefer `./scripts/up.sh standby` with defaults; only set keys to override.
+A failed mid-create leaves a partial RG — re-run `up.sh standby` (no destroy
+unless state is wedged).
 
 ```bash
 cd infra/standby-aks

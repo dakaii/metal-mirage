@@ -26,7 +26,8 @@ func main() {
 		}
 		vmSize := cfg.Get("vmSize")
 		if vmSize == "" {
-			vmSize = "Standard_B2s"
+			// Standard_B2s is often blocked on new subs / some regions (AKS sku filter).
+			vmSize = "Standard_D2s_v4"
 		}
 		k8sVersion := cfg.Get("kubernetesVersion")
 
@@ -74,16 +75,17 @@ func main() {
 			return err
 		}
 
-		// Storage Blob Data Contributor (well-known Azure built-in role GUID).
+		// Storage Blob Data Contributor (Azure built-in role).
+		// Correct GUID: ba92f5b4-2d11-453d-a403-e96b0029c9fe (NOT ba92a5b7-…).
 		_, err = authorization.NewRoleAssignment(ctx, "velero-blob-data", &authorization.RoleAssignmentArgs{
 			PrincipalId:   identity.PrincipalId,
 			PrincipalType: authorization.PrincipalTypeServicePrincipal,
 			RoleDefinitionId: pulumi.Sprintf(
-				"/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/ba92a5b7-b7df-409c-b29b-3a3a5c1f4c5e",
+				"/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe",
 				clientCfg.SubscriptionId,
 			),
 			Scope: sa.ID(),
-		})
+		}, pulumi.DependsOn([]pulumi.Resource{identity, sa}))
 		if err != nil {
 			return err
 		}

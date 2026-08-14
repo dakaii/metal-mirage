@@ -133,10 +133,14 @@ adds the GitRepository + root Kustomization.
 ## 4. Standby AKS + shared failover
 
 ```bash
-./scripts/up.sh standby
-./scripts/up.sh shared   # up.sh all wires outputs automatically
+./scripts/up.sh standby   # probes AKS-capable vmSize; SKIP_FLUX=1 if you only want AKS
+./scripts/up.sh shared    # up.sh all wires outputs automatically
 ./scripts/deploy-witness.sh
 ```
+
+A failed mid-`up` (bad SKU / role GUID) leaves a partial resource group — just
+re-run `./scripts/up.sh standby` after fixing config; no destroy needed unless
+Pulumi state is wedged. Override node SKU with `STANDBY_VM_SIZE=…`.
 
 After any later `./scripts/up.sh shared` (or `pulumi up` in `infra/shared`), re-run `./scripts/deploy-witness.sh` so the Function zip picks up dependency/code changes (for example `azure-storage-blob` and the durable failure counter). Pulumi alone does not redeploy the zip.
 
