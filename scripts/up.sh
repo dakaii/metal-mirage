@@ -105,9 +105,10 @@ ensure_azure_metal_sim_vm_size() {
 }
 
 # Avoid AKS default Standard_B2s when the subscription blocks it (common on new
-# subs in eastus). Override: STANDBY_VM_SIZE=… or SKIP_STANDBY_VM_SIZE_AUTO=1.
+# subs in eastus). Probes Compute quota + AKS agent-pool allowlist.
+# Override: STANDBY_VM_SIZE=…, FORCE_STANDBY_VM_SIZE_AUTO=1, SKIP_STANDBY_VM_SIZE_AUTO=1.
 ensure_standby_vm_size() {
-  local dir current
+  local dir current loc preferred size node_n cores primary_size
   dir="$(standby_dir)"
   if [[ ! -d "${ROOT}/${dir}" ]]; then
     return 0
@@ -129,23 +130,55 @@ ensure_standby_vm_size() {
   fi
 
   current="$(pulumi -C "${ROOT}/${dir}" config get standby:vmSize 2>/dev/null || true)"
-  if [[ -n "${current}" && "${current}" != "Standard_B2s" ]]; then
-    echo "==> keeping standby:vmSize=${current}"
+  if [[ -n "${current}" && "${current}" != "Standard_B2s" && "${FORCE_STANDBY_VM_SIZE_AUTO:-0}" != "1" ]]; then
+    echo "==> keeping standby:vmSize=${current} (set FORCE_STANDBY_VM_SIZE_AUTO=1 to re-probe)"
     return 0
   fi
 
-  # Prefer the size primary already settled on when present.
-  local primary_size
+  loc="$(pulumi -C "${ROOT}/${dir}" config get standby:location 2>/dev/null || true)"
+  loc="${loc:-eastus}"
+  node_n="$(pulumi -C "${ROOT}/${dir}" config get standby:nodeCount 2>/dev/null || true)"
+  node_n="${node_n:-1}"
+  if ! [[ "${node_n}" =~ ^[0-9]+$ ]]; then
+    echo "error: standby:nodeCount must be an integer (got ${node_n})" >&2
+    exit 1
+  fi
+  cores=$(($(azure_vm_size_cores Standard_D2s_v4) * node_n))
+
+  preferred=""
   primary_size="$(pulumi -C "${ROOT}/$(primary_dir)" config get primary:vmSize 2>/dev/null || true)"
-  if [[ -z "${primary_size}" || "${primary_size}" == "Standard_B2s" ]]; then
-    primary_size="Standard_D2s_v4"
-  fi
-  if [[ -n "${current}" ]]; then
-    echo "==> standby:vmSize ${current} → ${primary_size} (AKS often blocks Standard_B2s)"
+  if [[ -n "${primary_size}" && "${primary_size}" != "Standard_B2s" ]]; then
+    preferred="${primary_size}"
+  elif [[ -n "${current}" && "${current}" != "Standard_B2s" ]]; then
+    preferred="${current}"
   else
-    echo "==> standby:vmSize → ${primary_size}"
+    preferred="Standard_D2s_v4"
   fi
-  pulumi -C "${ROOT}/${dir}" config set standby:vmSize "${primary_size}"
+
+  if ! command -v az >/dev/null 2>&1 || ! az account show >/dev/null 2>&1; then
+    echo "==> az not ready — setting standby:vmSize=${preferred} without AKS probe"
+    pulumi -C "${ROOT}/${dir}" config set standby:vmSize "${preferred}"
+    return 0
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "==> python3 missing — setting standby:vmSize=${preferred} without AKS probe"
+    pulumi -C "${ROOT}/${dir}" config set standby:vmSize "${preferred}"
+    return 0
+  fi
+
+  echo "==> Auto-selecting standby:vmSize in ${loc} (AKS allowlist + ~${cores} vCPUs for ${node_n} node(s); prefer ${preferred})"
+  if ! size="$(pick_azure_vm_size "${loc}" "${preferred}" "${cores}" aks)"; then
+    echo "error: no AKS-capable VM size with enough quota in ${loc}" >&2
+    echo "  Try: STANDBY_VM_SIZE=Standard_D2s_v4 ./scripts/up.sh standby" >&2
+    echo "  Or:  az rest --method get --url \"https://management.azure.com/subscriptions/\$(az account show --query id -o tsv)/providers/Microsoft.ContainerService/locations/${loc}/vmSizes?api-version=2017-08-31\"" >&2
+    exit 1
+  fi
+  if [[ -n "${current}" && "${current}" != "${size}" ]]; then
+    echo "==> standby:vmSize ${current} → ${size}"
+  else
+    echo "==> standby:vmSize → ${size}"
+  fi
+  pulumi -C "${ROOT}/${dir}" config set standby:vmSize "${size}"
 }
 
 # Ensure primary:adminCidr allows Talos apid (:50000) from the operator laptop.
@@ -496,7 +529,7 @@ case "${TARGET}" in
     echo "      ADMIN_CIDR / ADMIN_CIDR_PREFIX_LEN / SKIP_ADMIN_CIDR_AUTO (azure-metal-sim NSG)" >&2
     echo "      SKIP_TALOS_APID_PREFLIGHT (azure-metal-sim :50000 check)" >&2
     echo "      SKIP_FLUX / GITOPS_REPO_URL / GITOPS_BRANCH (Flux after primary/standby)" >&2
-    echo "      STANDBY_VM_SIZE / SKIP_STANDBY_VM_SIZE_AUTO (AKS node SKU)" >&2
+    echo "      STANDBY_VM_SIZE / FORCE_STANDBY_VM_SIZE_AUTO / SKIP_STANDBY_VM_SIZE_AUTO (AKS SKU)" >&2
     echo "primary dir follows config/clusters.yaml (azure-metal-sim → infra/primary, bare-metal → infra/bare-metal)" >&2
     echo "remote_access.provider=wireguard|none selects the optional RemoteAccess adapter" >&2
     exit 1

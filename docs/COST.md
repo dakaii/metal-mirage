@@ -4,9 +4,9 @@ Idle resources bill. Prefer destroy between demos.
 
 | Resource | Notes |
 |----------|-------|
-| Talos VMs (`Standard_B2s`) | Largest ongoing cost for primary |
+| Talos VMs (`Standard_D2s_v4` typical; auto-picked) | Largest ongoing cost for primary metal-sim |
 | Worker Standard public IPs | One PIP per worker so laptop→Talos `ConfigurationApply` reaches the node; NSG still gates Talos API to `adminCidr` |
-| AKS system pool | Bill even with replicas=0 apps |
+| AKS system pool (`standby:vmSize`, default `Standard_D2s_v4`) | Bills even with replicas=0 apps; `Standard_B2s` often blocked on new subs |
 | Traffic Manager | Cheap; keep if you have a domain story |
 | Function Consumption (Y1) | Near-zero idle |
 | VPN `Standard_B1s` | Small; destroy independently |

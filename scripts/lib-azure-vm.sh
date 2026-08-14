@@ -113,7 +113,7 @@ sys.exit(1)
 ' "${cores}" "${fam_json}"
 }
 
-# Returns 0 only if the SKU is location-wide unavailable for this subscription.
+# Returns 0 if size is location-wide unavailable for this subscription (Compute SKU).
 # Zone restrictions are ignored: non-zonal creates still work when some AZs are
 # restricted. Empty/unknown list-skus must not false-block (that previously
 # skipped Standard_D2s_v4 after a successful helper-VM create).
@@ -144,13 +144,46 @@ sys.exit(1)  # not blocked
 '
 }
 
+# AKS agent-pool allowlist for a location (subscription-scoped).
+# Prints JSON string array of size names; empty array on probe failure.
+azure_aks_vm_sizes_json() {
+  local location="$1" sub
+  sub="$(az account show --query id -o tsv 2>/dev/null || true)"
+  if [[ -z "${sub}" ]]; then
+    echo '[]'
+    return 0
+  fi
+  # Classic ContainerService API — same filter AKS create uses for "VM size not allowed".
+  az rest --method get \
+    --url "https://management.azure.com/subscriptions/${sub}/providers/Microsoft.ContainerService/locations/${location}/vmSizes?api-version=2017-08-31" \
+    --query "value[].name" -o json 2>/dev/null || echo '[]'
+}
+
+# Returns 0 if size is absent from a non-empty AKS allowlist (blocked for AKS).
+# Empty/failed probe → not blocked (quota + create still decide).
+azure_aks_vm_size_blocked() {
+  local location="$1" size="$2" names
+  names="$(azure_aks_vm_sizes_json "${location}")"
+  printf '%s' "${names}" | python3 -c '
+import json, sys
+size = sys.argv[1].lower()
+names = json.load(sys.stdin)
+if not isinstance(names, list) or not names:
+    sys.exit(1)  # unknown → do not block
+allowed = {str(n).lower() for n in names}
+sys.exit(0 if size not in allowed else 1)
+' "${size}"
+}
+
 # Print first viable size for location.
-# Usage: pick_azure_vm_size <location> [preferred_size] [total_cores_needed]
+# Usage: pick_azure_vm_size <location> [preferred_size] [total_cores_needed] [mode]
+# mode=aks also filters against the AKS agent-pool allowlist for the location.
 # Progress lines go to stderr; chosen size to stdout.
 pick_azure_vm_size() {
   local location="$1"
   local preferred="${2:-}"
   local total_cores="${3:-}"
+  local mode="${4:-}"
   local usage_json size per_vm need
   local -a sizes=() families=()
 
@@ -182,6 +215,10 @@ pick_azure_vm_size() {
     fi
     if azure_vm_sku_blocked "${location}" "${size}"; then
       echo "    skip ${size}: location-wide SKU restriction in ${location}" >&2
+      continue
+    fi
+    if [[ "${mode}" == "aks" ]] && azure_aks_vm_size_blocked "${location}" "${size}"; then
+      echo "    skip ${size}: not in AKS agent-pool allowlist for ${location}" >&2
       continue
     fi
     printf '%s\n' "${size}"
