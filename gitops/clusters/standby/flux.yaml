@@ -27,6 +27,8 @@ spec:
   dependsOn:
     - name: infrastructure
   # Cold standby: keep manifests, scale demo to zero until failover drill.
+  # AKS: LoadBalancer so TM can target an IPv4 demo ingress (cannot mix IP + DomainName;
+  # aksFqdn is the API host and is not :80/healthz).
   patches:
     - patch: |-
         apiVersion: apps/v1
@@ -38,6 +40,18 @@ spec:
           replicas: 0
       target:
         kind: Deployment
+        name: demo
+        namespace: demo
+    - patch: |-
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: demo
+          namespace: demo
+        spec:
+          type: LoadBalancer
+      target:
+        kind: Service
         name: demo
         namespace: demo
   timeout: 5m

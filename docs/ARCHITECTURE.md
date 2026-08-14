@@ -127,7 +127,9 @@ Multi-city = another stack/region with a `city` tag; clients switch profiles man
 `infra/shared` builds a Traffic Manager profile (`TrafficRoutingMethodPriority`):
 
 - **Primary** external endpoint → primary ingress IP (priority 1).
-- **Standby** external endpoint → AKS FQDN when configured (priority 2).
+- **Standby** external endpoint → standby demo LoadBalancer IP when configured (priority 2).
+  Azure forbids mixing IPv4 and DomainName ExternalEndpoints in one profile; do not use the
+  AKS API FQDN (`aksFqdn`) here — it is not `:80/healthz`.
 - Monitor: HTTP `:80` path `/healthz`, 30s interval, 3 tolerated failures (metal-sim Azure LB → demo NodePort `30080`; no TLS required for portfolio DR).
 - DNS relative name `metal-mirage-app` → `*.trafficmanager.net` (custom domain optional via config).
 

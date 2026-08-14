@@ -294,12 +294,20 @@ standby_dir() {
 }
 
 wire_shared_from_outputs() {
-  local primary_ingress primary_api standby_fqdn pdir sdir
+  local primary_ingress primary_api standby_ingress pdir kc
   pdir="$(primary_dir)"
-  sdir="$(standby_dir)"
   primary_ingress="$(stack_output "${pdir}" ingressIP)"
   primary_api="$(stack_output "${pdir}" clusterEndpoint)"
-  standby_fqdn="$(stack_output "${sdir}" aksFqdn)"
+  # TM ExternalEndpoints cannot mix IP + DomainName; aksFqdn is the API host, not :80/healthz.
+  standby_ingress=""
+  kc="${ROOT}/.secrets/standby.kubeconfig"
+  if [[ ! -f "${kc}" ]]; then
+    export_cluster_kubeconfig standby >/dev/null 2>&1 || true
+  fi
+  if [[ -f "${kc}" ]] && command -v kubectl >/dev/null 2>&1; then
+    standby_ingress="$(kubectl --kubeconfig "${kc}" -n demo get svc demo \
+      -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
+  fi
 
   if [[ -z "${primary_ingress}" || "${primary_ingress}" == "null" ]]; then
     echo "error: primary ingressIP not available from ${pdir} (stack=${STACK})" >&2
@@ -311,9 +319,11 @@ wire_shared_from_outputs() {
     echo "warn: primary clusterEndpoint missing — witness primaryAPIURL will not be wired" >&2
     echo "  Set later: pulumi -C infra/shared config set shared:primaryAPIURL 'https://<api-ip>:6443/readyz'" >&2
   fi
-  if [[ -z "${standby_fqdn}" || "${standby_fqdn}" == "null" ]]; then
-    echo "warn: standby aksFqdn missing — Traffic Manager priority-2 endpoint will not be wired" >&2
-    echo "  Bring up standby first (./scripts/up.sh standby) or set shared:standbyFQDN manually" >&2
+  if [[ -z "${standby_ingress}" ]]; then
+    echo "warn: standby demo LoadBalancer IP missing — TM priority-2 endpoint skipped (primary-only)" >&2
+    echo "  After Flux: AKS demo Service should be type LoadBalancer (standby overlay patches it)." >&2
+    echo "  Then: kubectl --kubeconfig .secrets/standby.kubeconfig -n demo get svc demo" >&2
+    echo "  Or: pulumi -C infra/shared config set shared:standbyIngressIP <ip>" >&2
   fi
 
   echo "==> wiring shared stack from primary/standby outputs (${pdir})"
@@ -325,8 +335,10 @@ wire_shared_from_outputs() {
     if [[ -n "${primary_api}" && "${primary_api}" != "null" ]]; then
       pulumi config set shared:primaryAPIURL "${primary_api}/readyz"
     fi
-    if [[ -n "${standby_fqdn}" && "${standby_fqdn}" != "null" ]]; then
-      pulumi config set shared:standbyFQDN "${standby_fqdn}"
+    # Drop legacy FQDN target (Azure rejects IP+domain mix; aksFqdn is not /healthz).
+    pulumi config rm shared:standbyFQDN 2>/dev/null || true
+    if [[ -n "${standby_ingress}" ]]; then
+      pulumi config set shared:standbyIngressIP "${standby_ingress}"
     fi
   )
 }

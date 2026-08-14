@@ -18,7 +18,7 @@ TM does **not** use `/readyz`. Witness does **not** flip TM endpoints or scale s
 ```bash
 ./scripts/up.sh primary
 ./scripts/up.sh standby
-./scripts/up.sh shared          # wires primaryIngressIP + primaryAPIURL + standbyFQDN
+./scripts/up.sh shared          # wires primaryIngressIP + primaryAPIURL + standbyIngressIP (when demo LB exists)
 ./scripts/deploy-witness.sh     # re-run after every shared pulumi up
 # Flux on both clusters (standby demo stays replicas: 0 by default)
 export KUBECONFIG=$PWD/.secrets/primary.kubeconfig
