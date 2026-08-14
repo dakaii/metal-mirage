@@ -77,10 +77,21 @@ Manual alternatives:
 ## Drill B — Witness `FAILOVER_CANDIDATE` (API `/readyz`)
 
 1. Confirm `pulumi -C infra/shared stack output primaryAPIURL` is `https://…:6443/readyz`.
-2. Stream Function logs (Azure portal Log stream, or `az webapp log tail` against the Function App / shared RG).
-3. Break API reachability (stop control-plane nodes, NSG-deny `:6443`, or wrong URL).
-4. After **≥3** consecutive minute failures, expect log line `FAILOVER_CANDIDATE`.
-5. Optional: inspect blob container `witness-state` / blob `failures.txt` (ETag-backed counter).
+2. Confirm the Function indexed (Python v2). After `./scripts/deploy-witness.sh`:
+   ```bash
+   curl -fsS "https://$(pulumi -C infra/shared stack output witnessDefaultHost)/api/health"
+   az functionapp function list -g "$(pulumi -C infra/shared stack output resourceGroupName)" \
+     -n "$(pulumi -C infra/shared stack output witnessFunctionName)" -o table
+   ```
+   Expect `ok` and rows for `health` + `probe_primary`. Empty list after a green zip deploy usually means
+   missing `AzureWebJobsFeatureFlags=EnableWorkerIndexing` or no remote build — re-run
+   `./scripts/up.sh shared && ./scripts/deploy-witness.sh` (script sets both).
+3. **Logs:** Portal → Function App → Functions → **Monitor** (invocations). Linux Consumption (Y1)
+   often returns **404** on SCM `/logstream`, so `az webapp log tail` / `az functionapp log tail`
+   are unreliable — do not treat that as a failed deploy.
+4. Break API reachability (stop control-plane nodes, NSG-deny `:6443`, or wrong URL).
+5. After **≥3** consecutive minute failures, expect log line `FAILOVER_CANDIDATE` (Portal Monitor)
+   and blob `witness-state` / `failures.txt`.
 6. Optional outbound hooks (still **once** at threshold crossing) — see [AUTO-FAILOVER.md](AUTO-FAILOVER.md):
    - `shared:failoverWebhookURL` (+ optional HMAC secret) → generic HTTPS POST
    - `shared:failoverGitHubRepo` + `shared:failoverGitHubToken` → `repository_dispatch` (`failover-candidate`)
