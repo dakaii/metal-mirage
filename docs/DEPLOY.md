@@ -183,10 +183,13 @@ Default `remote_access.provider: none` — `./scripts/up.sh vpn` will **skip**
 ```bash
 # config/clusters.yaml → remote_access.provider: wireguard
 cd infra/vpn-gateways
-pulumi stack init dev
+pulumi stack select dev 2>/dev/null || pulumi stack init dev
 pulumi config set vpn:sshPublicKey "$(cat ~/.ssh/id_ed25519.pub)"
-pulumi config set vpn:adminCidr "$(curl -fsSL ifconfig.me)/32"   # lock down when possible
+pulumi config set vpn:adminCidr "$(curl -fsSL ifconfig.me)/32"
 cd ../..
+# Default Standard_B1s is often SkuNotAvailable in eastus — probe first:
+./scripts/pick-azure-vm-size.sh eastus 1
+pulumi -C infra/vpn-gateways config set vpn:vmSize Standard_D2s_v4   # use probe output
 ./scripts/up.sh vpn
 ./scripts/vpn-bootstrap.sh laptop
 ./scripts/vpn-prometheus-scrape-snippet.sh
@@ -194,6 +197,7 @@ cd ../..
 # DATABASE_URL='…' ./scripts/vpn-reconcile-peers.sh
 ```
 
+`SkuNotAvailable` on the VPN VM: re-run the probe (or set `vpn:location` to another region and probe there), then `./scripts/up.sh vpn` again — partial RG/PIP from a failed create is fine.
 Failover drills (Traffic Manager + witness): [DR.md](DR.md).
 
 ## Tear down

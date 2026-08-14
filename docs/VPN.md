@@ -28,11 +28,26 @@ remote_access:
 ```
 
 ```bash
+# Stack name matches primary/shared (default PULUMI_STACK=dev)
+cd infra/vpn-gateways
+pulumi stack select dev 2>/dev/null || pulumi stack init dev
+pulumi config set vpn:sshPublicKey "$(cat ~/.ssh/id_ed25519.pub)"
+pulumi config set vpn:adminCidr "$(curl -fsSL ifconfig.me)/32"
+cd ../..
+
+# Default vpn:vmSize is Standard_B1s — often SkuNotAvailable in eastus.
+# Probe and set before up (same helper as standby):
+./scripts/pick-azure-vm-size.sh eastus 1
+pulumi -C infra/vpn-gateways config set vpn:vmSize Standard_D2s_v4   # use probe output
+
 ./scripts/up.sh vpn
 ./scripts/vpn-bootstrap.sh laptop
 ```
 
-Import `vpn-clients/us-laptop.conf` into the official WireGuard app (or any client that accepts standard WireGuard profiles, e.g. Shadowrocket).
+If eastus keeps failing capacity restrictions, try another region:
+`pulumi -C infra/vpn-gateways config set vpn:location westus2` then re-probe that location.
+
+Import `vpn-clients/us-laptop.conf` into the official WireGuard app (or any client that accepts standard WireGuard profiles, e.g. Shadowrocket). Confirm exit IP with `curl ifconfig.me` (should match `pulumi -C infra/vpn-gateways stack output publicIP`).
 
 ### Optional: sync control-plane peers → VM
 
