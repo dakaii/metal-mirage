@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/pulumi/pulumi-azure-native-sdk/network/v2"
@@ -20,9 +21,23 @@ func main() {
 			location = "eastus"
 		}
 		primaryIP := cfg.Require("primaryIngressIP")
-		standbyFQDN := cfg.Get("standbyFQDN")
+		// Azure ExternalEndpoints cannot mix IPv4Address and DomainName in one profile.
+		// Primary is always the demo ingress IP; standby must be an IP too (not aksFqdn —
+		// the API hostname is not :80/healthz). Prefer shared:standbyIngressIP.
+		standbyIP := strings.TrimSpace(cfg.Get("standbyIngressIP"))
+		legacyFQDN := strings.TrimSpace(cfg.Get("standbyFQDN"))
 		appDomain := cfg.Get("appDomain")
 		enableWitness := cfgGetBool(cfg, "enableWitness", true)
+
+		if standbyIP == "" && legacyFQDN != "" {
+			return fmt.Errorf("shared:standbyFQDN=%q cannot be a Traffic Manager ExternalEndpoint alongside primaryIngressIP (Azure rejects mixing DomainName and IPv4Address). Unset it (`pulumi -C infra/shared config rm shared:standbyFQDN`) and set shared:standbyIngressIP to the standby demo LoadBalancer IP (AKS: Service type LoadBalancer on demo/demo), or omit standby for a primary-only profile", legacyFQDN)
+		}
+		if standbyIP != "" && net.ParseIP(standbyIP) == nil {
+			return fmt.Errorf("shared:standbyIngressIP must be an IP address, got %q", standbyIP)
+		}
+		if net.ParseIP(primaryIP) == nil {
+			return fmt.Errorf("shared:primaryIngressIP must be an IP address, got %q", primaryIP)
+		}
 
 		rg, err := resources.NewResourceGroup(ctx, "shared-rg", &resources.ResourceGroupArgs{
 			Location: pulumi.String(location),
@@ -79,7 +94,7 @@ func main() {
 			return err
 		}
 
-		if standbyFQDN != "" {
+		if standbyIP != "" {
 			_, err = network.NewEndpoint(ctx, "standby-endpoint", &network.EndpointArgs{
 				Name:              pulumi.String(tmStandbyEndpoint),
 				EndpointName:      pulumi.String(tmStandbyEndpoint),
@@ -88,7 +103,7 @@ func main() {
 				EndpointType:      pulumi.String("ExternalEndpoints"),
 				EndpointStatus:    network.EndpointStatusEnabled,
 				Priority:          pulumi.Float64(2),
-				Target:            pulumi.String(standbyFQDN),
+				Target:            pulumi.String(standbyIP),
 			}, pulumi.DependsOn([]pulumi.Resource{profile}))
 			if err != nil {
 				return err

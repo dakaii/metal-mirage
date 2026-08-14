@@ -98,7 +98,8 @@ AKS enables OIDC + workload identity. Velero storage uses a user-assigned identi
 |-----|----------|---------|-------|
 | `shared:primaryIngressIP` | yes | — | Primary **ingress** public IP (not the API PIP) |
 | `shared:primaryAPIURL` | if witness enabled | — | e.g. `https://<api-ip>:6443/readyz` |
-| `shared:standbyFQDN` | no | — | AKS FQDN for priority-2 endpoint |
+| `shared:standbyIngressIP` | no | — | Standby **demo** LoadBalancer IP for TM priority-2 (must be IPv4; Azure forbids mixing IP + DomainName ExternalEndpoints) |
+| `shared:standbyFQDN` | — | — | **Removed for TM** — was AKS API FQDN; causes `BadRequest` mix with primary IP. `pulumi config rm shared:standbyFQDN` |
 | `shared:appDomain` | no | — | Custom domain hint export only |
 | `shared:enableWitness` | no | `true` | Set `false`/`0`/`no` to skip Function App (TM still deploys) |
 | `shared:witnessLocation` | no | `shared:location` | Y1 plan region; use another region if Microsoft.Web **Total VMs** quota is 0 in eastus. Changing this **replaces** storage account + plan + Function (same Pulumi names, new region) — expected in preview |

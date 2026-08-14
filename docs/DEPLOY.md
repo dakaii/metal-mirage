@@ -149,6 +149,12 @@ Pulumi state is wedged. Override node SKU with `STANDBY_VM_SIZE=…`.
   create usually left **no** profile (API rejected the body); plain re-run
   `./scripts/up.sh shared` is enough. If Portal shows a stray `metal-mirage-app`
   profile in the shared RG, delete it once, then re-`up`.
+- `Cannot mix External Endpoints … IPv4Address, DomainName` — primary is an IP; do **not**
+  point standby at `aksFqdn`. Unset legacy config and use the demo LB IP:
+  `pulumi -C infra/shared config rm shared:standbyFQDN`
+  Standby Flux patches demo Service to `LoadBalancer`; after EXTERNAL-IP appears:
+  `./scripts/up.sh shared` (or `config set shared:standbyIngressIP <ip>`). Primary-only
+  TM (no standby endpoint) is fine until that IP exists.
 - `RelativeName` / DNS label `metal-mirage-app` must be **globally unique** on
   `*.trafficmanager.net`. If Azure reports a DNS/name collision, pick another
   relative name (code constant `tmProfileName` in `infra/shared/main.go`) or reclaim

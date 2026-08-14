@@ -7,7 +7,8 @@ description: Traffic Manager failover + optional witness Function
 # If witness enabled (default):
 #   pulumi config set shared:primaryAPIURL 'https://<api-ip>:6443/readyz'
 # Optional:
-#   pulumi config set shared:standbyFQDN '<aks fqdn>'
+#   pulumi config set shared:standbyIngressIP '<standby demo LB IP>'
+#   # do not set shared:standbyFQDN — Azure rejects mixing DomainName + IPv4 ExternalEndpoints
 #   pulumi config set shared:enableWitness false
 #   pulumi config set shared:witnessLocation westus2   # if Y1 quota is 0 in eastus (replaces existing witness SA/plan/app)
 #   pulumi config set --secret shared:failoverWebhookURL 'https://…'  # optional notify
