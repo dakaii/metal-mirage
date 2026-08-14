@@ -100,7 +100,8 @@ AKS enables OIDC + workload identity. Velero storage uses a user-assigned identi
 | `shared:primaryAPIURL` | if witness enabled | — | e.g. `https://<api-ip>:6443/readyz` |
 | `shared:standbyFQDN` | no | — | AKS FQDN for priority-2 endpoint |
 | `shared:appDomain` | no | — | Custom domain hint export only |
-| `shared:enableWitness` | no | `true` | Set `false`/`0`/`no` to skip Function App |
+| `shared:enableWitness` | no | `true` | Set `false`/`0`/`no` to skip Function App (TM still deploys) |
+| `shared:witnessLocation` | no | `shared:location` | Y1 plan region; use another region if Microsoft.Web **Total VMs** quota is 0 in eastus |
 | `shared:witnessFailureThreshold` | no | `3` | Consecutive failed `/readyz` probes before `FAILOVER_CANDIDATE` |
 | `shared:failoverWebhookURL` | no | — | Optional HTTPS webhook; POSTed once at threshold (use `--secret`) — [AUTO-FAILOVER.md](AUTO-FAILOVER.md) |
 | `shared:failoverWebhookHMACSecret` | no | — | Optional HMAC for `X-Metal-Mirage-Signature` (`--secret`) |
