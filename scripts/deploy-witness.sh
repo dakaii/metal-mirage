@@ -13,7 +13,7 @@ need curl
 
 select_stack infra/shared
 APP="$(require_stack_output infra/shared witnessFunctionName "enable shared:enableWitness (default) and ./scripts/up.sh shared")"
-HOST="$(stack_output infra/shared witnessDefaultHost || true)"
+HOST="$(stack_output infra/shared witnessDefaultHost)"
 cd "${ROOT}/infra/shared"
 
 RG="$(az functionapp list --query "[?name=='${APP}'].resourceGroup | [0]" -o tsv)"
@@ -23,7 +23,8 @@ if [[ -z "${RG}" || "${RG}" == "null" ]]; then
 fi
 
 # Ensure Python v2 indexing + remote build flags (also set by infra/shared Pulumi).
-# Safe to re-apply so an already-created app picks them up without a full stack rewrite.
+# Re-apply here so an already-created app works without waiting on pulumi up; still prefer
+# ./scripts/up.sh shared afterward so stack state matches Azure.
 az functionapp config appsettings set -g "${RG}" -n "${APP}" --settings \
   AzureWebJobsFeatureFlags=EnableWorkerIndexing \
   SCM_DO_BUILD_DURING_DEPLOYMENT=true \
@@ -40,23 +41,24 @@ echo "==> Deploying witness to ${APP} in ${RG} (remote build)"
 # --build-remote installs requirements.txt on Linux (needed for azure-storage-blob).
 az functionapp deployment source config-zip -g "${RG}" -n "${APP}" --src "${ZIP}" --build-remote true
 
-echo "==> Waiting for anonymous /api/health (Python v2 index)"
+echo "==> Waiting for anonymous /api/health (Python v2 index; cold Oryx can take several minutes)"
 if [[ -z "${HOST}" || "${HOST}" == "null" ]]; then
   HOST="$(az functionapp show -g "${RG}" -n "${APP}" --query defaultHostName -o tsv)"
 fi
 ok=0
-for _ in $(seq 1 18); do
+# ~7.5 minutes — remote build on cold Linux Y1 is often slower than a plain zip sync.
+for _ in $(seq 1 30); do
   if curl -fsS --max-time 10 "https://${HOST}/api/health" >/dev/null 2>&1; then
     ok=1
     break
   fi
-  sleep 10
+  sleep 15
 done
 if [[ "${ok}" -ne 1 ]]; then
   echo "error: https://${HOST}/api/health did not return ok after deploy" >&2
   echo "  Check Portal → Function App → Functions (expect probe_primary + health)." >&2
   echo "  Y1 CLI logstream often 404s — use Portal → Functions → Monitor instead." >&2
-  echo "  Re-run: ./scripts/up.sh shared && ./scripts/deploy-witness.sh" >&2
+  echo "  Then: ./scripts/up.sh shared && ./scripts/deploy-witness.sh" >&2
   exit 1
 fi
 echo "health: https://${HOST}/api/health → ok"
@@ -71,4 +73,5 @@ fi
 echo "Done. Timer probe runs every minute against shared:primaryAPIURL (/readyz)."
 echo "Failure counter lives in blob container witness-state (survives Y1 cold starts)."
 echo "Logs: Portal → Functions → Monitor (az webapp log tail often 404s on Linux Y1)."
+echo "Note: this script sets indexing/build app settings via az; run ./scripts/up.sh shared to persist them in Pulumi."
 echo "Opt-in notify: docs/AUTO-FAILOVER.md (webhook / GitHub repository_dispatch)."
