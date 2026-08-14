@@ -257,6 +257,11 @@ func witnessAppSettings(
 	settings := web.NameValuePairArray{
 		&web.NameValuePairArgs{Name: pulumi.String("FUNCTIONS_EXTENSION_VERSION"), Value: pulumi.String("~4")},
 		&web.NameValuePairArgs{Name: pulumi.String("FUNCTIONS_WORKER_RUNTIME"), Value: pulumi.String("python")},
+		// Python programming model v2 (decorator FunctionApp) — without this, host loads 0 functions.
+		&web.NameValuePairArgs{Name: pulumi.String("AzureWebJobsFeatureFlags"), Value: pulumi.String("EnableWorkerIndexing")},
+		// Remote build on zip deploy (azure-storage-blob, etc.).
+		&web.NameValuePairArgs{Name: pulumi.String("SCM_DO_BUILD_DURING_DEPLOYMENT"), Value: pulumi.String("true")},
+		&web.NameValuePairArgs{Name: pulumi.String("ENABLE_ORYX_BUILD"), Value: pulumi.String("true")},
 		&web.NameValuePairArgs{Name: pulumi.String("AzureWebJobsStorage"), Value: secretConn},
 		&web.NameValuePairArgs{Name: pulumi.String("PRIMARY_API_URL"), Value: pulumi.String(primaryAPI)},
 		&web.NameValuePairArgs{Name: pulumi.String("FAILURE_THRESHOLD"), Value: pulumi.String(failureThreshold)},

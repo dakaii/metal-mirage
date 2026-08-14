@@ -172,7 +172,7 @@ Pulumi state is wedged. Override node SKU with `STANDBY_VM_SIZE=…`.
   3. TM-only: `pulumi -C infra/shared config set shared:enableWitness false` then
      `./scripts/up.sh shared` (skip Function; skip `deploy-witness.sh`).
 
-After any later `./scripts/up.sh shared` (or `pulumi up` in `infra/shared`), re-run `./scripts/deploy-witness.sh` so the Function zip picks up dependency/code changes (for example `azure-storage-blob` and the durable failure counter). Pulumi alone does not redeploy the zip.
+After any later `./scripts/up.sh shared` (or `pulumi up` in `infra/shared`), re-run `./scripts/deploy-witness.sh` so the Function zip picks up dependency/code changes (for example `azure-storage-blob` and the durable failure counter). Pulumi alone does not redeploy the zip. The deploy script remote-builds dependencies, sets `EnableWorkerIndexing` via `az` (enough to unblock an existing app), and checks `https://<witnessDefaultHost>/api/health`. Prefer `./scripts/up.sh shared` as well so Pulumi state matches those app settings. Linux Y1 `az webapp log tail` often 404s — use Portal → Functions → Monitor.
 
 ## 5. VPN city exit (opt-in RemoteAccess)
 
