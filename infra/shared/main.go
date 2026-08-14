@@ -32,11 +32,13 @@ func main() {
 		if standbyIP == "" && legacyFQDN != "" {
 			return fmt.Errorf("shared:standbyFQDN=%q cannot be a Traffic Manager ExternalEndpoint alongside primaryIngressIP (Azure rejects mixing DomainName and IPv4Address). Unset it (`pulumi -C infra/shared config rm shared:standbyFQDN`) and set shared:standbyIngressIP to the standby demo LoadBalancer IP (AKS: Service type LoadBalancer on demo/demo), or omit standby for a primary-only profile", legacyFQDN)
 		}
-		if standbyIP != "" && net.ParseIP(standbyIP) == nil {
-			return fmt.Errorf("shared:standbyIngressIP must be an IP address, got %q", standbyIP)
+		if err := requireIPv4("shared:primaryIngressIP", primaryIP); err != nil {
+			return err
 		}
-		if net.ParseIP(primaryIP) == nil {
-			return fmt.Errorf("shared:primaryIngressIP must be an IP address, got %q", primaryIP)
+		if standbyIP != "" {
+			if err := requireIPv4("shared:standbyIngressIP", standbyIP); err != nil {
+				return err
+			}
 		}
 
 		rg, err := resources.NewResourceGroup(ctx, "shared-rg", &resources.ResourceGroupArgs{
@@ -286,6 +288,16 @@ func witnessAppSettings(
 		})
 	}
 	return settings
+}
+
+// Traffic Manager ExternalEndpoints classify targets as IPv4Address vs DomainName;
+// IPv6 would not match the IPv4 path and fails less clearly at Azure.
+func requireIPv4(name, value string) error {
+	ip := net.ParseIP(value)
+	if ip == nil || ip.To4() == nil {
+		return fmt.Errorf("%s must be an IPv4 address, got %q", name, value)
+	}
+	return nil
 }
 
 func cfgGet(cfg *config.Config, key, def string) string {

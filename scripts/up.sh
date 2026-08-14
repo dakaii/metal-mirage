@@ -305,6 +305,8 @@ wire_shared_from_outputs() {
     export_cluster_kubeconfig standby >/dev/null 2>&1 || true
   fi
   if [[ -f "${kc}" ]] && command -v kubectl >/dev/null 2>&1; then
+    # AKS publishes the public IP on .ip (not .hostname). Do not fall back to
+    # hostname — a DomainName target cannot share a TM profile with primary IPv4.
     standby_ingress="$(kubectl --kubeconfig "${kc}" -n demo get svc demo \
       -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
   fi

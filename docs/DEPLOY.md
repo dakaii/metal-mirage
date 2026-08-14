@@ -152,9 +152,11 @@ Pulumi state is wedged. Override node SKU with `STANDBY_VM_SIZE=…`.
 - `Cannot mix External Endpoints … IPv4Address, DomainName` — primary is an IP; do **not**
   point standby at `aksFqdn`. Unset legacy config and use the demo LB IP:
   `pulumi -C infra/shared config rm shared:standbyFQDN`
-  Standby Flux patches demo Service to `LoadBalancer`; after EXTERNAL-IP appears:
-  `./scripts/up.sh shared` (or `config set shared:standbyIngressIP <ip>`). Primary-only
-  TM (no standby endpoint) is fine until that IP exists.
+  Standby Flux patches demo Service to `LoadBalancer` **after this lands on the
+  GitRepository branch Flux tracks** (usually `main` post-merge). Until sync:
+  `kubectl --kubeconfig .secrets/standby.kubeconfig -n demo patch svc demo -p '{"spec":{"type":"LoadBalancer"}}'`.
+  After EXTERNAL-IP appears: `./scripts/up.sh shared` (or `config set shared:standbyIngressIP <ip>`).
+  Primary-only TM (no standby endpoint) is fine until that IP exists.
 - `RelativeName` / DNS label `metal-mirage-app` must be **globally unique** on
   `*.trafficmanager.net`. If Azure reports a DNS/name collision, pick another
   relative name (code constant `tmProfileName` in `infra/shared/main.go`) or reclaim
