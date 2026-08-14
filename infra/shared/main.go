@@ -34,6 +34,7 @@ func main() {
 		// Stable Azure names so ./scripts/failover-promote.sh can toggle endpoints without guessing.
 		// ProfileName/EndpointName are the URL path IDs — they must match Name or Azure returns
 		// MismatchingResourceName (Pulumi logical name alone becomes app-failover<hash>).
+		// RelativeName (DNS label) must be globally unique on *.trafficmanager.net.
 		const tmProfileName = "metal-mirage-app"
 		const tmPrimaryEndpoint = "primary"
 		const tmStandbyEndpoint = "standby"
@@ -46,6 +47,7 @@ func main() {
 			TrafficRoutingMethod:        network.TrafficRoutingMethodPriority,
 			TrafficViewEnrollmentStatus: network.TrafficViewEnrollmentStatusDisabled,
 			DnsConfig: &network.DnsConfigArgs{
+				// Globally unique DNS label → metal-mirage-app.trafficmanager.net
 				RelativeName: pulumi.String(tmProfileName),
 				Ttl:          pulumi.Float64(30),
 			},
@@ -124,6 +126,8 @@ func deployWitness(ctx *pulumi.Context, rg *resources.ResourceGroup, cfg *config
 	failoverGitHubToken := strings.TrimSpace(cfgGet(cfg, "failoverGitHubToken", ""))
 	// Optional: put the Function in another region when Microsoft.Web "Total VMs" quota
 	// is 0 in shared:location (common on new subs for Y1/Dynamic in eastus).
+	// Changing this replaces storage account + plan + Function in preview (same Pulumi
+	// logical names, new Azure region) — expected; re-run deploy-witness.sh afterward.
 	witnessLoc := cfgGet(cfg, "witnessLocation", "")
 	if witnessLoc == "" {
 		witnessLoc = cfgGet(cfg, "location", "eastus")

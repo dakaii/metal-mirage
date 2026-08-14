@@ -101,7 +101,7 @@ AKS enables OIDC + workload identity. Velero storage uses a user-assigned identi
 | `shared:standbyFQDN` | no | — | AKS FQDN for priority-2 endpoint |
 | `shared:appDomain` | no | — | Custom domain hint export only |
 | `shared:enableWitness` | no | `true` | Set `false`/`0`/`no` to skip Function App (TM still deploys) |
-| `shared:witnessLocation` | no | `shared:location` | Y1 plan region; use another region if Microsoft.Web **Total VMs** quota is 0 in eastus |
+| `shared:witnessLocation` | no | `shared:location` | Y1 plan region; use another region if Microsoft.Web **Total VMs** quota is 0 in eastus. Changing this **replaces** storage account + plan + Function (same Pulumi names, new region) — expected in preview |
 | `shared:witnessFailureThreshold` | no | `3` | Consecutive failed `/readyz` probes before `FAILOVER_CANDIDATE` |
 | `shared:failoverWebhookURL` | no | — | Optional HTTPS webhook; POSTed once at threshold (use `--secret`) — [AUTO-FAILOVER.md](AUTO-FAILOVER.md) |
 | `shared:failoverWebhookHMACSecret` | no | — | Optional HMAC for `X-Metal-Mirage-Signature` (`--secret`) |
@@ -115,7 +115,7 @@ Witness consecutive-failure state is stored in a private blob container (`witnes
 
 Traffic Manager monitor: HTTP `:80` path `/healthz` (demo nginx).
 
-Stable TM names (for `./scripts/failover-promote.sh`): profile / DNS relative name `metal-mirage-app`, endpoints `primary` / `standby`. Stack exports: `trafficManagerProfileName`, `trafficManagerPrimaryEndpoint`, `trafficManagerStandbyEndpoint`, `resourceGroupName`.
+Stable TM names (for `./scripts/failover-promote.sh`): profile / DNS relative name `metal-mirage-app`, endpoints `primary` / `standby`. The DNS `RelativeName` must be **globally unique** across Azure (`metal-mirage-app.trafficmanager.net`). Stack exports: `trafficManagerProfileName`, `trafficManagerPrimaryEndpoint`, `trafficManagerStandbyEndpoint`, `resourceGroupName`.
 
 After a `FAILOVER_CANDIDATE` (or for Drill A), operators warm standby with:
 
