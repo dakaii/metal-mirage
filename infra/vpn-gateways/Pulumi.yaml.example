@@ -9,4 +9,4 @@ description: WireGuard city-exit VM (cloud-init)
 # Optional:
 #   pulumi config set vpn:city us
 #   pulumi config set vpn:location eastus
-#   pulumi config set vpn:vmSize Standard_B1s
+#   pulumi config set vpn:vmSize Standard_D2s_v4   # default B1s often SkuNotAvailable; ./scripts/pick-azure-vm-size.sh eastus 1
