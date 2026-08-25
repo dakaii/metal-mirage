@@ -4,9 +4,19 @@
 #
 # Then:
 #   ./scripts/login.sh --local-pulumi   # if needed
+#   # Pin a dedicated Azure subscription (required by up.sh / register-talos):
+#   #   az account show --query id -o tsv
+#   # put that GUID under azure.subscription_id below, then:
+#   az account set --subscription '<that-guid>'
 #   ./scripts/register-talos-image.sh --in-azure eastus
 #   ./scripts/init-azure-metal-sim.sh --write-clusters --up
 #   # (sets talosImageId/adminCidr/counts; up.sh auto-picks primary:vmSize)
+#
+# Prefer a subscription used ONLY for metal-mirage so teardown cannot hit other projects.
+
+azure:
+  # Required for Azure lab paths (up standby/shared/vpn, azure-metal-sim primary, register-talos, …)
+  subscription_id: "REPLACE_WITH_DEDICATED_SUBSCRIPTION_GUID"
 
 primary:
   provisioner: azure-metal-sim

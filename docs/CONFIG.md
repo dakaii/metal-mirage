@@ -4,6 +4,20 @@ Copy patterns below into a stack (`pulumi config set …`). Never commit real `P
 
 Use `--secret` for anything that grants cluster or cloud access (kubeconfig, tokens).
 
+## `config/clusters.yaml` — Azure subscription pin
+
+| Key | Required | Default | Notes |
+|-----|----------|---------|-------|
+| `azure.subscription_id` | for Azure lab paths | — | Dedicated metal-mirage subscription GUID. Enforced by `require_azure_subscription` in operator scripts ([COST.md](COST.md)). Alias: `azure.subscription`. |
+
+```yaml
+azure:
+  subscription_id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+```
+
+Bare-metal dry-run does not need this. Azure metal-sim example:
+[`config/clusters.azure-metal-sim.example.yaml`](../config/clusters.azure-metal-sim.example.yaml).
+
 ## `infra/primary` (namespace `primary`)
 
 | Key | Required | Default | Notes |

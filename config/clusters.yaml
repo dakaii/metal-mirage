@@ -12,6 +12,13 @@
 # Golden path: docs/METAL-PRIMARY.md · Install: docs/INSTALL-TALOS.md
 # Inventory SoT for bare-metal: primary.nodes (+ optional api_endpoint_ip, …)
 #   → ./scripts/sync-baremetal-config.sh (also run by ./scripts/up.sh primary)
+#
+# Azure lab isolation (required before metal-sim / AKS / shared / VPN / register-talos):
+#   Prefer a dedicated Azure subscription for metal-mirage — do not reuse ZeroClaw/Banjar/etc.
+#   azure:
+#     subscription_id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # az account show --query id -o tsv
+#   Escape hatches: ALLOW_UNPINNED_AZURE_SUB=1 · SKIP_AZURE_SUBSCRIPTION_CHECK=1
+#   See docs/COST.md · docs/DEPLOY.md
 
 primary:
   provisioner: bare-metal

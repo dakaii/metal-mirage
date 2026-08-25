@@ -11,6 +11,8 @@ Config key reference: [CONFIG.md](CONFIG.md). Operator checklist: [BEST-PRACTICE
 - [Pulumi](https://www.pulumi.com/docs/install/) 3.x + Go 1.26.x (matches CI / `infra/*/go.mod`; see AGENTS.md)
 - `talosctl`, `kubectl`, `flux` (optional until GitOps step)
 - Azure CLI + subscription — only for metal-sim lab, AKS standby, Traffic Manager, or WireGuard city VM
+  - **Pin a dedicated subscription** via `azure.subscription_id` in `config/clusters.yaml` (see [COST.md](COST.md)). Scripts refuse Azure lab up/destroy when `az account` does not match.
+  - Azure has no GCP-style “delete the project”; isolation is subscription (or careful RG deletes). Prefer a sub used only for metal-mirage.
 - `wg` / WireGuard tools — only when `remote_access.provider: wireguard`
 - Domain optional (Traffic Manager gives `*.trafficmanager.net`)
 
@@ -23,6 +25,15 @@ Auth helper (opens vendor login flows only when needed):
 ./scripts/login.sh --local-pulumi  # file-backed Pulumi state
 ./scripts/login.sh --control-plane # check control-plane/.env (Neon + Clerk)
 ./scripts/login.sh --clerk-keyless # optional Clerk keyless demo keys (AGENTS.md)
+```
+
+Before any Azure lab command:
+
+```bash
+# Create/use a dedicated sub, then:
+az account set --subscription '<metal-mirage-sub-guid>'
+# Put the same GUID in config/clusters.yaml → azure.subscription_id
+az account show --query '{name:name,id:id}' -o table
 ```
 
 Headless / no browser: `AZURE_LOGIN_FLAGS=--use-device-code ./scripts/login.sh`

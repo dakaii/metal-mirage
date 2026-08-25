@@ -125,6 +125,8 @@ done
 need pulumi
 need curl
 
+require_azure_subscription
+
 if ! [[ "${CP_COUNT}" =~ ^[0-9]+$ && "${WORKER_COUNT}" =~ ^[0-9]+$ ]]; then
   echo "--cp and --workers must be non-negative integers" >&2
   exit 1

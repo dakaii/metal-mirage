@@ -466,6 +466,10 @@ ensure_flux() {
 
 PRIMARY_PROVISIONER="$(yaml_section_key primary provisioner | tr -d '[:space:]')"
 
+if target_needs_azure_subscription "${TARGET}" up; then
+  require_azure_subscription
+fi
+
 case "${TARGET}" in
   primary)
     # bare-metal: config/clusters.yaml is SoT — sync into Pulumi before up.
@@ -544,6 +548,8 @@ case "${TARGET}" in
     echo "      SKIP_TALOS_APID_PREFLIGHT (azure-metal-sim :50000 check)" >&2
     echo "      SKIP_FLUX / GITOPS_REPO_URL / GITOPS_BRANCH (Flux after primary/standby)" >&2
     echo "      STANDBY_VM_SIZE / FORCE_STANDBY_VM_SIZE_AUTO / SKIP_STANDBY_VM_SIZE_AUTO (AKS SKU)" >&2
+    echo "      azure.subscription_id in config/clusters.yaml (required for Azure lab paths)" >&2
+    echo "      ALLOW_UNPINNED_AZURE_SUB / SKIP_AZURE_SUBSCRIPTION_CHECK (subscription pin escapes)" >&2
     echo "primary dir follows config/clusters.yaml (azure-metal-sim → infra/primary, bare-metal → infra/bare-metal)" >&2
     echo "remote_access.provider=wireguard|none selects the optional RemoteAccess adapter" >&2
     exit 1
