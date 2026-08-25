@@ -198,6 +198,7 @@ pulumi -C infra/vpn-gateways config set vpn:vmSize Standard_D2s_v4   # use probe
 ```
 
 `SkuNotAvailable` on the VPN VM: re-run the probe (or set `vpn:location` to another region and probe there), then `./scripts/up.sh vpn` again — partial RG/PIP from a failed create is fine.
+
 Failover drills (Traffic Manager + witness): [DR.md](DR.md).
 
 ## Tear down
