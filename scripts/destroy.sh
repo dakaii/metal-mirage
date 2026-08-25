@@ -10,6 +10,11 @@ STACK="${PULUMI_STACK:-dev}"
 
 need pulumi "Install: https://www.pulumi.com/docs/install/"
 
+# Pin Azure sub before any ARM-touching destroy.
+if target_needs_azure_subscription "${TARGET}" destroy; then
+  require_azure_subscription
+fi
+
 destroy_one() {
   local dir="$1"
   local stack="${2:-${STACK}}"

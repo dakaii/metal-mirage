@@ -154,6 +154,7 @@ tm_set_endpoint_status() {
     return 0
   fi
   need az "Install Azure CLI: https://learn.microsoft.com/cli/azure/install-azure-cli"
+  require_azure_subscription
   echo "==> Traffic Manager endpoint ${ep} → ${status} (profile=${TM_PROFILE} rg=${TM_RG})"
   az network traffic-manager endpoint update \
     --name "${ep}" \

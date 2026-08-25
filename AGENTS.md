@@ -9,9 +9,17 @@ This repo is an **Infrastructure-as-Code / GitOps** project (Pulumi Go + Talos +
 Auth: `./scripts/login.sh` (Azure + Pulumi; `--status`, `--local-pulumi`, optional `--control-plane` / `--clerk-keyless`).
 
 ### Azure subscription hygiene (operator Mac / any shared tenant)
-- This lab often coexists with unrelated Azure work. **Before** `./scripts/up.sh` or `./scripts/destroy.sh`, run `az account show` and confirm you are on the **intended** subscription (prefer a dedicated metal-mirage sub, or never reuse another product’s sub).
-- `./scripts/destroy.sh` only destroys stacks visible to the **current Pulumi backend**. If `stack ls` errors with `azblob://… AccountName is required` or skips every stack, Azure resources may still exist — list/delete RGs with `az group list` / `az group delete` on the correct subscription.
+- Prefer a **dedicated Azure subscription** for metal-mirage (see [docs/COST.md](docs/COST.md)). Pin it in `config/clusters.yaml`:
+  ```yaml
+  azure:
+    subscription_id: "<guid from az account show --query id -o tsv>"
+  ```
+- Azure lab paths (`./scripts/up.sh` standby/shared/vpn/`all`, azure-metal-sim primary, `register-talos-image.sh`, `init-azure-metal-sim.sh`, `deploy-witness.sh`, TM in `failover-promote.sh`) call `require_azure_subscription` and **refuse** if `az account` does not match.
+- Bare-metal dry-run (`./scripts/up.sh primary` with default `clusters.yaml`) does **not** require the pin.
+- Escape hatches: `ALLOW_UNPINNED_AZURE_SUB=1`, `SKIP_AZURE_SUBSCRIPTION_CHECK=1`.
+- `./scripts/destroy.sh` only destroys stacks visible to the **current Pulumi backend**. If `stack ls` errors with `azblob://… AccountName is required` or skips every stack, Azure resources may still exist — list/delete RGs with `az group list` / `az group delete` on the **pinned** subscription.
 - Do not paste chat `# comments` on the same zsh line as `az` / `pulumi` commands (zsh treats them as args).
+- GCP project-per-lab is a nicer “nuke everything” UX; this repo stays on Azure with a dedicated-sub pin instead of a full cloud rewrite.
 
 ### Local Pulumi dry-run (cloud VM / laptop file backend)
 - `pulumi login --local` (or `./scripts/login.sh --local-pulumi`) needs `PULUMI_CONFIG_PASSPHRASE` (or `PULUMI_CONFIG_PASSPHRASE_FILE`) to create stacks. Without it, `./scripts/up.sh primary` fails at secrets-manager init even when `dry_run: true`.

@@ -73,6 +73,8 @@ HELPER_VM="talos-vhd-helper"
 SCHEMATIC_ID="${TALOS_SCHEMATIC_ID:-376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib.sh
+source "${ROOT}/scripts/lib.sh"
 # shellcheck source=scripts/lib-azure-vm.sh
 source "${ROOT}/scripts/lib-azure-vm.sh"
 
@@ -100,6 +102,8 @@ if ! az account show >/dev/null 2>&1; then
   echo "az not logged in — run: ./scripts/login.sh --force --local-pulumi  (or az login)" >&2
   exit 1
 fi
+
+require_azure_subscription
 
 if [[ -n "${TALOS_IMAGE_URL:-}" ]]; then
   VHD_URL="${TALOS_IMAGE_URL}"
