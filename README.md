@@ -76,6 +76,7 @@ cp config/clusters.azure-metal-sim.example.yaml config/clusters.yaml
 |-----|----------|
 | [docs/METAL-PRIMARY.md](docs/METAL-PRIMARY.md) | **Start here** — metal inventory, ingress, Flux |
 | [docs/INSTALL-TALOS.md](docs/INSTALL-TALOS.md) | ISO fetch / lab PXE / Lifecycle noop vs Redfish |
+| [docs/MACOS-TALOS-LAB.md](docs/MACOS-TALOS-LAB.md) | Mac Mini / Apple Silicon: Talos via QEMU VMs (not bare metal) |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layers, failover, VPN split |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Full bring-up (Flux, witness, VPN peers) |
 | [docs/DR.md](docs/DR.md) | Failover drill (Traffic Manager + witness) |

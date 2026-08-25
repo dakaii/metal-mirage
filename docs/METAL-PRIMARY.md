@@ -169,11 +169,14 @@ remote_access:
 
 Copy [config/clusters.azure-metal-sim.example.yaml](../config/clusters.azure-metal-sim.example.yaml) over `config/clusters.yaml`, register a Talos image, then `./scripts/up.sh primary` (Azure VMs).
 
+**Mac Mini / Apple Silicon:** Talos does **not** replace macOS on the metal. You can run a local Talos cluster in **QEMU VMs** on the Mini — see [MACOS-TALOS-LAB.md](MACOS-TALOS-LAB.md). Prefer an x86 NUC or Azure metal-sim for the portable bare-metal / metal-sim L1 paths in this repo.
+
 ## Related
 
 | Doc | Role |
 |-----|------|
 | [INSTALL-TALOS.md](INSTALL-TALOS.md) | ISO fetch / lab PXE / Lifecycle |
+| [MACOS-TALOS-LAB.md](MACOS-TALOS-LAB.md) | Talos on Mac Mini via virtualization (not bare metal) |
 | [PORTABLE-ARCHITECTURE.md](PORTABLE-ARCHITECTURE.md) | L1 output contract |
 | [CAPABILITY-PORTS.md](CAPABILITY-PORTS.md) | Compute / RemoteAccess / Lifecycle ports |
 | [DEPLOY.md](DEPLOY.md) | Full multi-stack bring-up |
