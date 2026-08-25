@@ -8,6 +8,15 @@ This repo is an **Infrastructure-as-Code / GitOps** project (Pulumi Go + Talos +
 
 Auth: `./scripts/login.sh` (Azure + Pulumi; `--status`, `--local-pulumi`, optional `--control-plane` / `--clerk-keyless`).
 
+### Azure subscription hygiene (operator Mac / any shared tenant)
+- This lab often coexists with unrelated Azure work. **Before** `./scripts/up.sh` or `./scripts/destroy.sh`, run `az account show` and confirm you are on the **intended** subscription (prefer a dedicated metal-mirage sub, or never reuse another product’s sub).
+- `./scripts/destroy.sh` only destroys stacks visible to the **current Pulumi backend**. If `stack ls` errors with `azblob://… AccountName is required` or skips every stack, Azure resources may still exist — list/delete RGs with `az group list` / `az group delete` on the correct subscription.
+- Do not paste chat `# comments` on the same zsh line as `az` / `pulumi` commands (zsh treats them as args).
+
+### Local Pulumi dry-run (cloud VM / laptop file backend)
+- `pulumi login --local` (or `./scripts/login.sh --local-pulumi`) needs `PULUMI_CONFIG_PASSPHRASE` (or `PULUMI_CONFIG_PASSPHRASE_FILE`) to create stacks. Without it, `./scripts/up.sh primary` fails at secrets-manager init even when `dry_run: true`.
+- Offline hello path: passphrase set → `./scripts/up.sh primary` (default bare-metal dry-run) → `./scripts/export-baremetal-machine-configs.sh`.
+
 ### Toolchain (already provisioned in the VM image)
 - **Go 1.26.5** is required — `infra/*` modules pin `go 1.26.5` (control-plane pins `go 1.25.0`) and the base image's Go 1.22 will not build them. Installed at `/usr/local/go` (symlinked into `/usr/local/bin`).
 - **Pulumi** (`/usr/local/bin/pulumi`) and **kustomize v5.4.3** (`/usr/local/bin/kustomize`) are installed.
