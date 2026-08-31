@@ -1,0 +1,39 @@
+# GCP standby lab — GKE Autopilot + Cloud DNS (see docs/GCP-DR.md)
+#
+# Copy/merge into config/clusters.yaml when using GCP instead of AKS standby.
+# Prefer a GCP project used ONLY for metal-mirage (project-delete teardown).
+
+gcp:
+  project_id: REPLACE_WITH_DEDICATED_GCP_PROJECT_ID
+
+primary:
+  provisioner: bare-metal
+  pulumi_dir: infra/bare-metal
+  profile: primary
+  dry_run: true
+  install_disk: /dev/sda
+  nodes:
+    - role: controlplane
+      ip: 192.168.1.10
+    - role: worker
+      ip: 192.168.1.11
+
+standby:
+  provisioner: gke
+  pulumi_dir: infra/standby-gke
+  profile: standby
+
+# Azure Traffic Manager shared stack does not apply to GKE — use Cloud DNS
+# failover (docs/GCP-DR.md). Leave shared unused or keep Azure for metal-sim labs.
+shared:
+  pulumi_dir: infra/shared
+
+remote_access:
+  provider: none
+  pulumi_dir: infra/vpn-gateways
+
+lifecycle:
+  provider: noop
+
+vpn:
+  pulumi_dir: infra/vpn-gateways

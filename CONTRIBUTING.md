@@ -54,6 +54,7 @@ cd infra/primary && pulumi preview
 - `go-build (infra/primary)`
 - `go-build (infra/bare-metal)`
 - `go-build (infra/standby-aks)`
+- `go-build (infra/standby-gke)`
 - `go-build (infra/shared)`
 - `go-build (infra/vpn-gateways)`
 - `go-build (infra/flux-bootstrap)`

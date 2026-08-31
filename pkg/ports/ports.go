@@ -2,7 +2,7 @@
 //
 // These are intentional seams so adapters stay swappable:
 //
-//	Compute        — L1 cluster provisioners (azure-metal-sim | bare-metal | aks)
+//	Compute        — L1 cluster provisioners (azure-metal-sim | bare-metal | aks | gke)
 //	RemoteAccess   — optional device/admin access plane (wireguard today; none to disable)
 //	Lifecycle      — power / BMC / boot (documented stub; not implemented in OSS)
 //	Observability  — scrape / health signals (GitOps hints today; not a runtime port)
@@ -18,6 +18,7 @@ const (
 	ComputeAzureMetalSim ComputeProvider = "azure-metal-sim"
 	ComputeBareMetal     ComputeProvider = "bare-metal"
 	ComputeAKS           ComputeProvider = "aks"
+	ComputeGKE           ComputeProvider = "gke"
 )
 
 // PrimaryOutputs is the portable contract every primary compute adapter must export.

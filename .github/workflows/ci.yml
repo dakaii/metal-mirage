@@ -21,6 +21,7 @@ jobs:
           - infra/primary
           - infra/bare-metal
           - infra/standby-aks
+          - infra/standby-gke
           - infra/shared
           - infra/vpn-gateways
           - infra/flux-bootstrap

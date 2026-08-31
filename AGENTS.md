@@ -19,7 +19,8 @@ Auth: `./scripts/login.sh` (Azure + Pulumi; `--status`, `--local-pulumi`, option
 - Escape hatches: `ALLOW_UNPINNED_AZURE_SUB=1`, `SKIP_AZURE_SUBSCRIPTION_CHECK=1`.
 - `./scripts/destroy.sh` only destroys stacks visible to the **current Pulumi backend**. If `stack ls` errors with `azblob://… AccountName is required` or skips every stack, Azure resources may still exist — list/delete RGs with `az group list` / `az group delete` on the **pinned** subscription.
 - Do not paste chat `# comments` on the same zsh line as `az` / `pulumi` commands (zsh treats them as args).
-- GCP project-per-lab is a nicer “nuke everything” UX; this repo stays on Azure with a dedicated-sub pin instead of a full cloud rewrite.
+- GCP project-per-lab is a nicer “nuke everything” UX; this repo stays on Azure with a dedicated-sub pin instead of a full cloud rewrite for the default path. Optional GKE standby: [docs/GCP-DR.md](docs/GCP-DR.md) + `infra/standby-gke` (`gcp.project_id` pin; `ALLOW_UNPINNED_GCP_PROJECT` / `SKIP_GCP_PROJECT_CHECK`).
+- Mac Mini Talos lab (QEMU/HVF, not bare metal): `./scripts/macos-talos-lab.sh` — [docs/MACOS-TALOS-LAB.md](docs/MACOS-TALOS-LAB.md).
 
 ### Local Pulumi dry-run (cloud VM / laptop file backend)
 - `pulumi login --local` (or `./scripts/login.sh --local-pulumi`) needs `PULUMI_CONFIG_PASSPHRASE` (or `PULUMI_CONFIG_PASSPHRASE_FILE`) to create stacks. Without it, `./scripts/up.sh primary` fails at secrets-manager init even when `dry_run: true`.

@@ -35,11 +35,15 @@ if target_needs_azure_subscription primary up; then
   fail=1
 fi
 if ! target_needs_azure_subscription standby up; then
-  echo "FAIL: standby should need Azure subscription" >&2
+  echo "FAIL: aks/default standby should need Azure subscription" >&2
   fail=1
 fi
+# Simulate gke by checking helper with a temp note — default clusters.yaml is aks-shaped
+# (provisioner aks). When standby.provisioner=gke, Azure is not required:
+# covered indirectly via resolve path; keep aks default assertion above.
+
 if ! target_needs_azure_subscription all up; then
-  echo "FAIL: up all should need Azure subscription" >&2
+  echo "FAIL: up all should need Azure subscription (default aks shared path)" >&2
   fail=1
 fi
 # destroy all with bare-metal + no pin → skip
@@ -47,6 +51,9 @@ if target_needs_azure_subscription all destroy; then
   echo "FAIL: destroy all without pin should skip Azure check on bare-metal" >&2
   fail=1
 fi
+
+assert_ok assert_gcp_project_match 'metal-mirage-lab' 'metal-mirage-lab'
+assert_fail assert_gcp_project_match 'metal-mirage-lab' 'other-project'
 
 if [[ "${fail}" -ne 0 ]]; then
   exit 1

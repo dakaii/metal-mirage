@@ -11,7 +11,7 @@ Contracts live in [`pkg/ports`](../pkg/ports). Config seams live in
 
 | Port | Config / location | OSS adapter today |
 |------|-------------------|-------------------|
-| **Compute** | `primary.*` / `standby.*` | `infra/primary`, `infra/bare-metal`, `infra/standby-aks` |
+| **Compute** | `primary.*` / `standby.*` | `infra/primary`, `infra/bare-metal`, `infra/standby-aks`, `infra/standby-gke` (GCP lab) |
 | **RemoteAccess** | `remote_access.*` (legacy `vpn.*`) | `infra/vpn-gateways` + `scripts/vpn-*` (**wireguard**) or **none** |
 | **Lifecycle** | `lifecycle.provider` + optional `nodes[].bmc` | **noop** (default); ISO fetch + lab PXE helpers; Redfish out-of-tree — [INSTALL-TALOS.md](INSTALL-TALOS.md) |
 | **Observability** | `gitops/infrastructure/monitoring` | ConfigMap hints + optional PrometheusRules |
@@ -20,6 +20,7 @@ Contracts live in [`pkg/ports`](../pkg/ports). Config seams live in
 config/clusters.yaml
         │
         ├─ primary.provisioner ──► Pulumi dir (bare-metal | metal-sim | aks)
+        ├─ standby.provisioner ──► aks (Azure) | gke (GCP lab — docs/GCP-DR.md)
         ├─ remote_access.provider ──► none (default) | wireguard adapter
         ├─ lifecycle.provider ──► noop (default; redfish rejected in OSS)
         └─ Observability ──► GitOps hints (not a driver API)

@@ -69,6 +69,7 @@ resolve_pulumi_dir() {
   # For vpn/remote_access: prefer remote_access.pulumi_dir, then vpn.pulumi_dir.
   local profile="$1"
   local dir=""
+  local standby_prov=""
 
   case "${profile}" in
     vpn | remote_access)
@@ -96,7 +97,14 @@ resolve_pulumi_dir() {
   fi
   case "${profile}" in
     primary) echo "infra/primary" ;;
-    standby) echo "infra/standby-aks" ;;
+    standby)
+      standby_prov="$(yaml_section_key standby provisioner | tr -d '[:space:]')"
+      if [[ "${standby_prov}" == "gke" ]]; then
+        echo "infra/standby-gke"
+      else
+        echo "infra/standby-aks"
+      fi
+      ;;
     shared) echo "infra/shared" ;;
     *) return 1 ;;
   esac
@@ -165,16 +173,19 @@ azure_subscription_id_config() {
 
 # Returns 0 when this up/destroy target talks to Azure ARM.
 # Usage: target_needs_azure_subscription <target> [up|destroy]
-#   up (default): standby/shared/vpn/all, or primary when azure-metal-sim
-#   destroy: same, except "all" on bare-metal without azure.subscription_id
-#            skips the pin (offline dry-run teardown); set the pin to verify
-#            leftover metal-sim RGs on the correct sub.
+#   up (default): AKS standby/shared/vpn/all, or primary when azure-metal-sim
+#   GKE standby does NOT need Azure (see target_needs_gcp_project).
 target_needs_azure_subscription() {
   local target="$1" mode="${2:-up}"
-  local primary_prov=""
+  local primary_prov="" standby_prov=""
   primary_prov="$(yaml_section_key primary provisioner | tr -d '[:space:]')"
+  standby_prov="$(yaml_section_key standby provisioner | tr -d '[:space:]')"
   case "${target}" in
-    standby | shared | vpn | remote_access) return 0 ;;
+    standby)
+      # Default / aks → Azure; gke → GCP only
+      [[ -z "${standby_prov}" || "${standby_prov}" == "aks" ]]
+      ;;
+    shared | vpn | remote_access) return 0 ;;
     all)
       if [[ "${mode}" == "destroy" ]]; then
         if [[ "${primary_prov}" == "azure-metal-sim" ]]; then
@@ -183,8 +194,18 @@ target_needs_azure_subscription() {
         if [[ "$(remote_access_provider)" == "wireguard" ]]; then
           return 0
         fi
-        # bare-metal destroy-all: only enforce when an explicit pin is present
+        if [[ -z "${standby_prov}" || "${standby_prov}" == "aks" ]]; then
+          # destroy-all with AKS (or unset) — pin only if configured / always for up
+          [[ -n "$(azure_subscription_id_config)" ]]
+          return
+        fi
+        # gke + bare-metal + no vpn: Azure optional
         [[ -n "$(azure_subscription_id_config)" ]]
+        return
+      fi
+      # up all: skip Azure TM when standby is gke (shared skipped in up.sh)
+      if [[ "${standby_prov}" == "gke" ]]; then
+        [[ "${primary_prov}" == "azure-metal-sim" || "$(remote_access_provider)" == "wireguard" ]]
         return
       fi
       return 0
@@ -259,4 +280,78 @@ require_azure_subscription() {
     exit 1
   fi
   echo "==> Azure subscription OK (${name} / ${got})"
+}
+
+# --- GCP project pin (config/clusters.yaml → gcp.project_id) ---
+
+gcp_project_id_config() {
+  local id=""
+  id="$(yaml_section_key gcp project_id)"
+  id="$(printf '%s' "${id}" | tr -d '[:space:]')"
+  if [[ -z "${id}" ]]; then
+    id="$(yaml_section_key gcp project)"
+    id="$(printf '%s' "${id}" | tr -d '[:space:]')"
+  fi
+  printf '%s\n' "${id}"
+}
+
+target_needs_gcp_project() {
+  local target="$1"
+  local standby_prov=""
+  standby_prov="$(yaml_section_key standby provisioner | tr -d '[:space:]')"
+  case "${target}" in
+    standby | all)
+      [[ "${standby_prov}" == "gke" ]]
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+assert_gcp_project_match() {
+  local expected="$1" actual="$2"
+  [[ "${expected}" == "${actual}" ]]
+}
+
+# Enforce gcp.project_id against `gcloud config get-value project`.
+# Env: SKIP_GCP_PROJECT_CHECK=1 · ALLOW_UNPINNED_GCP_PROJECT=1
+require_gcp_project() {
+  local want="" got=""
+  if [[ "${SKIP_GCP_PROJECT_CHECK:-0}" == "1" ]]; then
+    echo "==> SKIP_GCP_PROJECT_CHECK=1 — not verifying GCP project"
+    return 0
+  fi
+  want="$(gcp_project_id_config)"
+  if [[ -z "${want}" ]]; then
+    if [[ "${ALLOW_UNPINNED_GCP_PROJECT:-0}" == "1" ]]; then
+      echo "warn: gcp.project_id unset — ALLOW_UNPINNED_GCP_PROJECT=1 continuing" >&2
+      echo "  Pin a dedicated lab project in config/clusters.yaml (see docs/GCP-DR.md)." >&2
+      return 0
+    fi
+    echo "error: gcp.project_id is required before GKE standby up/destroy" >&2
+    echo "  Add to config/clusters.yaml:" >&2
+    echo "    gcp:" >&2
+    echo "      project_id: \"$(gcloud config get-value project 2>/dev/null || echo 'metal-mirage-lab')\"" >&2
+    echo "  Prefer a dedicated metal-mirage GCP project (project-delete teardown)." >&2
+    echo "  Escape hatch: ALLOW_UNPINNED_GCP_PROJECT=1 — docs/GCP-DR.md" >&2
+    exit 1
+  fi
+  if ! command -v gcloud >/dev/null 2>&1; then
+    echo "error: gcloud CLI required to verify gcp.project_id=${want}" >&2
+    echo "  Install: https://cloud.google.com/sdk/docs/install" >&2
+    exit 1
+  fi
+  got="$(gcloud config get-value project 2>/dev/null || true)"
+  got="$(printf '%s' "${got}" | tr -d '[:space:]')"
+  if [[ -z "${got}" || "${got}" == "(unset)" ]]; then
+    echo "error: gcloud project unset — run: gcloud config set project ${want}" >&2
+    exit 1
+  fi
+  if ! assert_gcp_project_match "${want}" "${got}"; then
+    echo "error: GCP project mismatch — refusing to continue" >&2
+    echo "  config gcp.project_id: ${want}" >&2
+    echo "  gcloud config project: ${got}" >&2
+    echo "  Fix: gcloud config set project ${want}" >&2
+    exit 1
+  fi
+  echo "==> GCP project OK (${got})"
 }

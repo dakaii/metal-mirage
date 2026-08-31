@@ -469,6 +469,9 @@ PRIMARY_PROVISIONER="$(yaml_section_key primary provisioner | tr -d '[:space:]')
 if target_needs_azure_subscription "${TARGET}" up; then
   require_azure_subscription
 fi
+if target_needs_gcp_project "${TARGET}"; then
+  require_gcp_project
+fi
 
 case "${TARGET}" in
   primary)
@@ -484,11 +487,22 @@ case "${TARGET}" in
     ensure_flux primary
     ;;
   standby)
-    ensure_standby_vm_size
+    STANDBY_PROVISIONER="$(yaml_section_key standby provisioner | tr -d '[:space:]')"
+    if [[ "${STANDBY_PROVISIONER}" != "gke" ]]; then
+      ensure_standby_vm_size
+    else
+      echo "==> standby.provisioner=gke — skipping Azure AKS VM size probe (docs/GCP-DR.md)"
+    fi
     up_one "$(standby_dir)"
     ensure_flux standby
     ;;
   shared)
+    STANDBY_PROVISIONER="$(yaml_section_key standby provisioner | tr -d '[:space:]')"
+    if [[ "${STANDBY_PROVISIONER}" == "gke" ]]; then
+      echo "error: infra/shared is Azure Traffic Manager — not used with standby.provisioner=gke" >&2
+      echo "  Configure Cloud DNS failover instead — docs/GCP-DR.md" >&2
+      exit 1
+    fi
     wire_shared_from_outputs
     up_one infra/shared
     ;;
@@ -523,11 +537,18 @@ case "${TARGET}" in
     fi
     up_one "$(primary_dir)"
     ensure_flux primary
-    ensure_standby_vm_size
+    STANDBY_PROVISIONER="$(yaml_section_key standby provisioner | tr -d '[:space:]')"
+    if [[ "${STANDBY_PROVISIONER}" != "gke" ]]; then
+      ensure_standby_vm_size
+    fi
     up_one "$(standby_dir)"
     ensure_flux standby
-    wire_shared_from_outputs
-    up_one infra/shared
+    if [[ "${STANDBY_PROVISIONER}" == "gke" ]]; then
+      echo "==> standby.provisioner=gke — skipping Azure shared (Traffic Manager); see docs/GCP-DR.md"
+    else
+      wire_shared_from_outputs
+      up_one infra/shared
+    fi
     if [[ "$(remote_access_provider)" == "none" ]]; then
       echo "==> remote_access.provider=none — skipping WireGuard adapter"
     else
