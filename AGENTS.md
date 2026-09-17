@@ -8,6 +8,24 @@ This repo is an **Infrastructure-as-Code / GitOps** project (Pulumi Go + Talos +
 
 Auth: `./scripts/login.sh` (Azure + Pulumi; `--status`, `--local-pulumi`, optional `--control-plane` / `--clerk-keyless`).
 
+### Azure subscription hygiene (operator Mac / any shared tenant)
+- Prefer a **dedicated Azure subscription** for metal-mirage (see [docs/COST.md](docs/COST.md)). Pin it in `config/clusters.yaml`:
+  ```yaml
+  azure:
+    subscription_id: "<guid from az account show --query id -o tsv>"
+  ```
+- Azure lab paths (`./scripts/up.sh` standby/shared/vpn/`all`, azure-metal-sim primary, `register-talos-image.sh`, `init-azure-metal-sim.sh`, `deploy-witness.sh`, TM in `failover-promote.sh`) call `require_azure_subscription` and **refuse** if `az account` does not match.
+- Bare-metal dry-run (`./scripts/up.sh primary` with default `clusters.yaml`) does **not** require the pin.
+- Escape hatches: `ALLOW_UNPINNED_AZURE_SUB=1`, `SKIP_AZURE_SUBSCRIPTION_CHECK=1`.
+- `./scripts/destroy.sh` only destroys stacks visible to the **current Pulumi backend**. If `stack ls` errors with `azblob://… AccountName is required` or skips every stack, Azure resources may still exist — list/delete RGs with `az group list` / `az group delete` on the **pinned** subscription.
+- Do not paste chat `# comments` on the same zsh line as `az` / `pulumi` commands (zsh treats them as args).
+- GCP project-per-lab is a nicer “nuke everything” UX; this repo stays on Azure with a dedicated-sub pin instead of a full cloud rewrite for the default path. Optional GKE standby: [docs/GCP-DR.md](docs/GCP-DR.md) + `infra/standby-gke` (`gcp.project_id` pin; `ALLOW_UNPINNED_GCP_PROJECT` / `SKIP_GCP_PROJECT_CHECK`).
+- Mac Mini Talos lab (QEMU/HVF, not bare metal): `./scripts/macos-talos-lab.sh` — [docs/MACOS-TALOS-LAB.md](docs/MACOS-TALOS-LAB.md).
+
+### Local Pulumi dry-run (cloud VM / laptop file backend)
+- `pulumi login --local` (or `./scripts/login.sh --local-pulumi`) needs `PULUMI_CONFIG_PASSPHRASE` (or `PULUMI_CONFIG_PASSPHRASE_FILE`) to create stacks. Without it, `./scripts/up.sh primary` fails at secrets-manager init even when `dry_run: true`.
+- Offline hello path: passphrase set → `./scripts/up.sh primary` (default bare-metal dry-run) → `./scripts/export-baremetal-machine-configs.sh`.
+
 ### Toolchain (already provisioned in the VM image)
 - **Go 1.26.5** is required — `infra/*` modules pin `go 1.26.5` (control-plane pins `go 1.25.0`) and the base image's Go 1.22 will not build them. Installed at `/usr/local/go` (symlinked into `/usr/local/bin`).
 - **Pulumi** (`/usr/local/bin/pulumi`) and **kustomize v5.4.3** (`/usr/local/bin/kustomize`) are installed.

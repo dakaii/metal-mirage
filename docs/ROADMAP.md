@@ -21,6 +21,8 @@ In-repo tracking for the open-source platform. Prefer this file over a flood of 
 
 - Live Azure bring-up validation of the full DR path (needs Azure creds in the operator environment)
 - Branch protection: require CI check `go-build (pkg/ports)` on `main`
+- GCP shared adapter: Pulumi Cloud DNS failover (+ optional witness on Cloud Functions) — [GCP-DR.md](GCP-DR.md) documents manual DNS today; `infra/standby-gke` ships Autopilot standby
+- Mac Mini: keep `./scripts/macos-talos-lab.sh` as the lab wrapper — **no** first-class Pulumi L1 for macOS QEMU
 
 ### Recently landed
 

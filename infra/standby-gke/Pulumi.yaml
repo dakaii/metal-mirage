@@ -1,0 +1,3 @@
+name: metal-mirage-standby-gke
+runtime: go
+description: GKE Autopilot standby cluster (GCP DR lab path)

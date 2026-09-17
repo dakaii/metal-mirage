@@ -66,4 +66,5 @@ implement `provider: redfish` out of tree.
 
 - [METAL-PRIMARY.md](METAL-PRIMARY.md) — inventory → apply golden path
 - [CAPABILITY-PORTS.md](CAPABILITY-PORTS.md) — port matrix
+- [MACOS-TALOS-LAB.md](MACOS-TALOS-LAB.md) — Mac Mini / Apple Silicon: Talos in QEMU VMs only (not bare metal)
 - Azure metal-sim lab (no ISO): `./scripts/register-talos-image.sh` + `infra/primary`

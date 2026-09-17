@@ -10,6 +10,14 @@ STACK="${PULUMI_STACK:-dev}"
 
 need pulumi "Install: https://www.pulumi.com/docs/install/"
 
+# Pin cloud accounts before ARM/GCP-touching destroy.
+if target_needs_azure_subscription "${TARGET}" destroy; then
+  require_azure_subscription
+fi
+if target_needs_gcp_project "${TARGET}"; then
+  require_gcp_project
+fi
+
 destroy_one() {
   local dir="$1"
   local stack="${2:-${STACK}}"
@@ -63,9 +71,20 @@ case "${TARGET}" in
       ra_dir="infra/vpn-gateways"
     fi
     destroy_one "${ra_dir}"
-    destroy_one infra/shared
+    STANDBY_PROVISIONER="$(yaml_section_key standby provisioner | tr -d '[:space:]')"
+    if [[ "${STANDBY_PROVISIONER}" == "gke" ]]; then
+      echo "==> standby.provisioner=gke — skipping Azure shared destroy; see docs/GCP-DR.md"
+    else
+      destroy_one infra/shared
+    fi
     destroy_flux
     destroy_one "$(standby_dir)"
+    # Sibling standby adapter so leftover AKS/GKE spend is not stranded after a switch.
+    if [[ "$(standby_dir)" == "infra/standby-gke" ]]; then
+      destroy_one infra/standby-aks || true
+    elif [[ "$(standby_dir)" == "infra/standby-aks" ]]; then
+      destroy_one infra/standby-gke || true
+    fi
     destroy_one "$(primary_dir)"
     # If switching provisioners, also try the sibling primary stack so leftover
     # Azure metal-sim spend is not stranded when clusters.yaml already points at bare-metal.
@@ -82,4 +101,4 @@ case "${TARGET}" in
     ;;
 esac
 
-echo "Done. Verify in Azure Portal that resource groups are gone (and delete talos-images RG if you registered a gallery image)."
+echo "Done. Verify cloud consoles (Azure RGs / GCP project) are clean — docs/COST.md · docs/GCP-DR.md."

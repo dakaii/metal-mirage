@@ -11,6 +11,8 @@ need zip
 need pulumi "Install: https://www.pulumi.com/docs/install/"
 need curl
 
+require_azure_subscription
+
 select_stack infra/shared
 APP="$(require_stack_output infra/shared witnessFunctionName "enable shared:enableWitness (default) and ./scripts/up.sh shared")"
 HOST="$(stack_output infra/shared witnessDefaultHost)"

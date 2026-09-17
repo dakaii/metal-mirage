@@ -77,10 +77,21 @@ ensure_azure() {
     return 1
   fi
   if [[ "${FORCE}" -eq 0 ]] && az_logged_in; then
-    local name sub
+    local name sub sid want
     name="$(az account show --query user.name -o tsv 2>/dev/null || echo "?")"
     sub="$(az account show --query name -o tsv 2>/dev/null || echo "?")"
+    sid="$(az account show --query id -o tsv 2>/dev/null || echo "?")"
     ok "logged in as ${name} (subscription: ${sub})"
+    want="$(azure_subscription_id_config)"
+    if [[ -n "${want}" ]]; then
+      if assert_azure_subscription_match "${want}" "${sid}"; then
+        ok "matches azure.subscription_id pin"
+      else
+        warn "azure.subscription_id=${want} but az account is ${sid} — run: az account set --subscription ${want}"
+      fi
+    else
+      info "azure.subscription_id unset (required before Azure lab up/destroy — docs/COST.md)"
+    fi
     return 0
   fi
   if [[ "${STATUS_ONLY}" -eq 1 ]]; then

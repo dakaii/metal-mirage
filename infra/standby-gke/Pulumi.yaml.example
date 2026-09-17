@@ -1,0 +1,10 @@
+# Optional — copy keys into a stack with `pulumi config set`.
+# Prefer config/clusters.yaml standby.pulumi_dir: infra/standby-gke
+#
+#   pulumi config set gcp:project metal-mirage-lab
+#   pulumi config set gcp:region us-central1
+#   pulumi config set standby:location us-central1
+#
+# Pin the same project in config/clusters.yaml:
+#   gcp:
+#     project_id: metal-mirage-lab

@@ -34,6 +34,7 @@ for d in infra/*/ control-plane pkg/ports tools/talos-installer; do
 done
 
 shellcheck -x scripts/*.sh   # -x follows sourced helpers (e.g. lib.sh)
+./scripts/test-azure-subscription-guard.sh
 ( cd infra/shared/witness && python3 -m unittest -v test_notify.py )
 actionlint                   # if installed: brew install actionlint
 gitleaks detect --source .   # uses .gitleaks.toml; brew install gitleaks
@@ -53,6 +54,7 @@ cd infra/primary && pulumi preview
 - `go-build (infra/primary)`
 - `go-build (infra/bare-metal)`
 - `go-build (infra/standby-aks)`
+- `go-build (infra/standby-gke)`
 - `go-build (infra/shared)`
 - `go-build (infra/vpn-gateways)`
 - `go-build (infra/flux-bootstrap)`

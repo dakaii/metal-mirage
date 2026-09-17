@@ -2,6 +2,38 @@
 
 Idle resources bill. Prefer destroy between demos.
 
+## Isolate the lab (subscription pin)
+
+Azure does **not** give you GCP-style “one project folder → delete project.” Closest
+equivalents:
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **Dedicated Azure subscription** for metal-mirage (recommended) | Hard isolation; `az account set` + pin in config | Extra sub to create/manage |
+| Shared sub + careful RG deletes | Works if disciplined | Easy to mix with other products (ZeroClaw/Banjar) |
+| GCP project-per-lab | Nuke-by-project is simple | Not what this repo provisions today |
+
+**Enforced in scripts:** set `azure.subscription_id` in `config/clusters.yaml` to the
+dedicated lab subscription GUID (`az account show --query id -o tsv`).  
+`./scripts/up.sh` / `./scripts/destroy.sh` (Azure paths), `register-talos-image.sh`,
+`init-azure-metal-sim.sh`, `deploy-witness.sh`, and TM changes in `failover-promote.sh`
+refuse to continue if `az account` does not match.
+
+```yaml
+azure:
+  subscription_id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+```
+
+Escape hatches (not for routine use): `ALLOW_UNPINNED_AZURE_SUB=1`,
+`SKIP_AZURE_SUBSCRIPTION_CHECK=1`.
+
+Resource groups for this lab are Pulumi-named (`primary-rg…`, `standby-rg…`,
+`shared-rg…`, `vpn-rg…`, plus `talos-images`). After destroy, confirm with
+`az group list` on the **pinned** subscription. If Pulumi cannot see stacks
+(wrong backend), delete leftover RGs with `az group delete` on that same sub.
+
+## Idle cost notes
+
 | Resource | Notes |
 |----------|-------|
 | Talos VMs (`Standard_D2s_v4` typical; auto-picked) | Largest ongoing cost for primary metal-sim |
