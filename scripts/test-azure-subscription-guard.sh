@@ -55,6 +55,24 @@ fi
 assert_ok assert_gcp_project_match 'metal-mirage-lab' 'metal-mirage-lab'
 assert_fail assert_gcp_project_match 'metal-mirage-lab' 'other-project'
 
+# provisioner wins over a stale sibling pulumi_dir (bugbot: high)
+ROOT_BAK="${ROOT}"
+tmpdir="$(mktemp -d)"
+mkdir -p "${tmpdir}/config"
+cat >"${tmpdir}/config/clusters.yaml" <<'YAML'
+standby:
+  provisioner: gke
+  pulumi_dir: infra/standby-aks
+YAML
+ROOT="${tmpdir}"
+got="$(resolve_pulumi_dir standby)"
+ROOT="${ROOT_BAK}"
+rm -rf "${tmpdir}"
+if [[ "${got}" != "infra/standby-gke" ]]; then
+  echo "FAIL: gke + stale pulumi_dir=infra/standby-aks should resolve to infra/standby-gke (got ${got})" >&2
+  fail=1
+fi
+
 if [[ "${fail}" -ne 0 ]]; then
   exit 1
 fi

@@ -91,22 +91,57 @@ resolve_pulumi_dir() {
   esac
 
   dir="$(yaml_section_key "${profile}" pulumi_dir)"
-  if [[ -n "${dir}" ]]; then
-    printf '%s\n' "${dir}"
-    return 0
-  fi
   case "${profile}" in
-    primary) echo "infra/primary" ;;
-    standby)
-      standby_prov="$(yaml_section_key standby provisioner | tr -d '[:space:]')"
-      if [[ "${standby_prov}" == "gke" ]]; then
-        echo "infra/standby-gke"
-      else
-        echo "infra/standby-aks"
+    primary)
+      if [[ -n "${dir}" ]]; then
+        printf '%s\n' "${dir}"
+        return 0
       fi
+      echo "infra/primary"
       ;;
-    shared) echo "infra/shared" ;;
-    *) return 1 ;;
+    standby)
+      # provisioner is SoT. A stale pulumi_dir (e.g. still infra/standby-aks after
+      # flipping provisioner: gke) must not win — that runs the wrong cloud stack
+      # while up.sh/destroy.sh apply GKE guards.
+      standby_prov="$(yaml_section_key standby provisioner | tr -d '[:space:]')"
+      case "${standby_prov}" in
+        gke)
+          if [[ -z "${dir}" || "${dir}" == "infra/standby-aks" ]]; then
+            echo "infra/standby-gke"
+          else
+            printf '%s\n' "${dir}"
+          fi
+          ;;
+        aks | "")
+          if [[ -z "${dir}" || "${dir}" == "infra/standby-gke" ]]; then
+            echo "infra/standby-aks"
+          else
+            printf '%s\n' "${dir}"
+          fi
+          ;;
+        *)
+          if [[ -n "${dir}" ]]; then
+            printf '%s\n' "${dir}"
+          else
+            echo "infra/standby-aks"
+          fi
+          ;;
+      esac
+      ;;
+    shared)
+      if [[ -n "${dir}" ]]; then
+        printf '%s\n' "${dir}"
+        return 0
+      fi
+      echo "infra/shared"
+      ;;
+    *)
+      if [[ -n "${dir}" ]]; then
+        printf '%s\n' "${dir}"
+        return 0
+      fi
+      return 1
+      ;;
   esac
 }
 
